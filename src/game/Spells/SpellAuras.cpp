@@ -1947,9 +1947,6 @@ void Aura::HandleWaterBreathing(bool /*apply*/, bool /*Real*/)
 
 void Aura::HandleAuraModShapeshift(bool apply, bool Real)
 {
-    if (!Real)
-        return;
-
     uint32 modelid = 0;
     float mod_x = 0.0f;
     Powers PowerType = POWER_MANA;
@@ -2036,7 +2033,56 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
             break;
     }
 
-    if (modelid > 0)
+    // remove polymorph before changing display id to keep new display id
+    if (Real)
+    {
+        switch (form)
+        {
+            case FORM_CAT:
+            case FORM_TREE:
+            case FORM_TRAVEL:
+            case FORM_AQUA:
+            case FORM_BEAR:
+            case FORM_DIREBEAR:
+            case FORM_MOONKIN:
+            {
+                // remove movement affects
+                target->RemoveSpellsCausingAura(SPELL_AURA_MOD_ROOT, GetHolder());
+                Unit::AuraList const& slowingAuras = target->GetAurasByType(SPELL_AURA_MOD_DECREASE_SPEED);
+                for (Unit::AuraList::const_iterator iter = slowingAuras.begin(); iter != slowingAuras.end();)
+                {
+                    SpellEntry const* aurSpellInfo = (*iter)->GetSpellProto();
+
+                    uint32 aurMechMask = aurSpellInfo->GetAllSpellMechanicMask();
+
+                    // If spell that caused this aura has Croud Control or Daze effect
+                    if ((aurMechMask & MECHANIC_NOT_REMOVED_BY_SHAPESHIFT) ||
+                            // some Daze spells have these parameters instead of MECHANIC_DAZE (skip snare spells)
+                            (aurSpellInfo->SpellIconID == 15 && aurSpellInfo->Dispel == 0 &&
+                            (aurMechMask & (1 << (MECHANIC_SNARE - 1))) == 0))
+                    {
+                        ++iter;
+                        continue;
+                    }
+
+                    // All OK, remove aura now
+                    target->RemoveAurasDueToSpellByCancel(aurSpellInfo->Id);
+                    iter = slowingAuras.begin();
+                }
+
+                // and polymorphic affects
+                if (target->IsPolymorphed())
+                    target->RemoveAurasDueToSpell(target->getTransForm());
+
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    sLog.outInfo("DEBUG %d %d %d %d", apply, Real, modelid, target->HasAuraType(SPELL_AURA_TRANSFORM));
+    if (modelid > 0 && !target->getTransForm())
     {
         // fix Tauren shapeshift scaling
         if (target->getRace() == RACE_TAUREN)
@@ -2046,61 +2092,22 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
             else
                 mod_x = -20.0f; // 0.8 * 1.25    = 1.0
         }
+        
+        if (apply)
+            target->SetDisplayId(modelid);
+        else
+            target->SetDisplayId(target->GetNativeDisplayId());
+        target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
     }
-
-    // remove polymorph before changing display id to keep new display id
-    switch (form)
-    {
-        case FORM_CAT:
-        case FORM_TREE:
-        case FORM_TRAVEL:
-        case FORM_AQUA:
-        case FORM_BEAR:
-        case FORM_DIREBEAR:
-        case FORM_MOONKIN:
-        {
-            // remove movement affects
-            target->RemoveSpellsCausingAura(SPELL_AURA_MOD_ROOT, GetHolder());
-            Unit::AuraList const& slowingAuras = target->GetAurasByType(SPELL_AURA_MOD_DECREASE_SPEED);
-            for (Unit::AuraList::const_iterator iter = slowingAuras.begin(); iter != slowingAuras.end();)
-            {
-                SpellEntry const* aurSpellInfo = (*iter)->GetSpellProto();
-
-                uint32 aurMechMask = aurSpellInfo->GetAllSpellMechanicMask();
-
-                // If spell that caused this aura has Croud Control or Daze effect
-                if ((aurMechMask & MECHANIC_NOT_REMOVED_BY_SHAPESHIFT) ||
-                        // some Daze spells have these parameters instead of MECHANIC_DAZE (skip snare spells)
-                        (aurSpellInfo->SpellIconID == 15 && aurSpellInfo->Dispel == 0 &&
-                         (aurMechMask & (1 << (MECHANIC_SNARE - 1))) == 0))
-                {
-                    ++iter;
-                    continue;
-                }
-
-                // All OK, remove aura now
-                target->RemoveAurasDueToSpellByCancel(aurSpellInfo->Id);
-                iter = slowingAuras.begin();
-            }
-
-            // and polymorphic affects
-            if (target->IsPolymorphed())
-                target->RemoveAurasDueToSpell(target->getTransForm());
-
-            break;
-        }
-        default:
-            break;
-    }
-
+    
+    if (!Real)
+        return;
+    
     if (apply)
     {
         // remove other shapeshift before applying a new one
         target->RemoveSpellsCausingAura(SPELL_AURA_MOD_SHAPESHIFT, GetHolder());
 
-        if (modelid > 0) 
-            target->SetDisplayId(modelid);
-     
         if (PowerType != POWER_MANA)
         {
             // reset power to default values only at power change
@@ -2187,9 +2194,6 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
     }
     else
     {
-        if (modelid > 0)
-            target->SetDisplayId(target->GetNativeDisplayId());
-
         if (target->getClass() == CLASS_DRUID)
         {
             target->setPowerType(POWER_MANA);
@@ -2202,7 +2206,6 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
     // adding/removing linked auras
     // add/remove the shapeshift aura's boosts
     HandleShapeshiftBoosts(apply);
-    target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
     target->UpdateModelData();
 
     if (target->GetTypeId() == TYPEID_PLAYER)
@@ -2366,7 +2369,13 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
                     break;
                 }
             }
-            handledAura->ApplyModifier(true);
+            handledAura->HandleAuraTransform(true,false);
+        }
+        else //reapply shapeshifting, there should be only one.
+        {
+            Unit::AuraList const& shapeshift = target->GetAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
+            if (!shapeshift.empty())
+                shapeshift.front()->HandleAuraModShapeshift(true,false);
         }
     }
 }
