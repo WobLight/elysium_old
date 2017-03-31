@@ -2218,7 +2218,7 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
     if (apply)
     {
         // Discombobulate removes mount auras.
-        if (GetId() == 4060)
+        if (GetId() == 4060 && Real)
             target->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
         if (GetId() == 23603)   // Ustaag <Nostalrius> : Nefarian Class Call Mage
         {
