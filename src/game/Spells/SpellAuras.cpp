@@ -2348,36 +2348,39 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
     }
     else
     {
-        // ApplyModifier(true) will reapply it if need
-        target->setTransForm(0);
-        target->SetDisplayId(target->GetNativeDisplayId());
-
-        // apply default equipment for creature case
-        if (target->GetTypeId() == TYPEID_UNIT)
-            ((Creature*)target)->LoadEquipment(((Creature*)target)->GetCreatureInfo()->equipmentId, true);
-
-        // re-apply some from still active with preference negative cases
-        Unit::AuraList const& otherTransforms = target->GetAurasByType(SPELL_AURA_TRANSFORM);
-        if (!otherTransforms.empty())
+        //reset cosmetics only if it's the current transform
+        if (target->getTransForm() == GetId())
         {
-            // look for other transform auras
-            Aura* handledAura = *otherTransforms.rbegin();
-            for (Unit::AuraList::const_reverse_iterator i = otherTransforms.rbegin(); i != otherTransforms.rend(); ++i)
+            target->setTransForm(0);
+            target->SetDisplayId(target->GetNativeDisplayId());
+
+            // apply default equipment for creature case
+            if (target->GetTypeId() == TYPEID_UNIT)
+                ((Creature*)target)->LoadEquipment(((Creature*)target)->GetCreatureInfo()->equipmentId, true);
+
+            // re-apply some from still active with preference negative cases
+            Unit::AuraList const& otherTransforms = target->GetAurasByType(SPELL_AURA_TRANSFORM);
+            if (!otherTransforms.empty())
             {
-                // negative auras are preferred
-                if (!IsPositiveSpell((*i)->GetSpellProto()->Id))
+                // look for other transform auras
+                Aura* handledAura = *otherTransforms.rbegin();
+                for (Unit::AuraList::const_reverse_iterator i = otherTransforms.rbegin(); i != otherTransforms.rend(); ++i)
                 {
-                    handledAura = *i;
-                    break;
+                    // negative auras are preferred
+                    if (!IsPositiveSpell((*i)->GetSpellProto()->Id))
+                    {
+                        handledAura = *i;
+                        break;
+                    }
                 }
+                handledAura->HandleAuraTransform(true,false);
             }
-            handledAura->HandleAuraTransform(true,false);
-        }
-        else //reapply shapeshifting, there should be only one.
-        {
-            Unit::AuraList const& shapeshift = target->GetAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
-            if (!shapeshift.empty())
-                shapeshift.front()->HandleAuraModShapeshift(true,false);
+            else //reapply shapeshifting, there should be only one.
+            {
+                Unit::AuraList const& shapeshift = target->GetAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
+                if (!shapeshift.empty())
+                    shapeshift.front()->HandleAuraModShapeshift(true,false);
+            }
         }
     }
 }
