@@ -2359,8 +2359,8 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
         if (!otherTransforms.empty())
         {
             // look for other transform auras
-            Aura* handledAura = *otherTransforms.begin();
-            for (Unit::AuraList::const_iterator i = otherTransforms.begin(); i != otherTransforms.end(); ++i)
+            Aura* handledAura = *otherTransforms.rbegin();
+            for (Unit::AuraList::const_reverse_iterator i = otherTransforms.rbegin(); i != otherTransforms.rend(); ++i)
             {
                 // negative auras are preferred
                 if (!IsPositiveSpell((*i)->GetSpellProto()->Id))
