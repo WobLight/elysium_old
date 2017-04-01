@@ -2217,132 +2217,134 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
     Unit *target = GetTarget();
     if (apply)
     {
+        uint32 model_id;
+        
         // Discombobulate removes mount auras.
         if (GetId() == 4060 && Real)
             target->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-        if (GetId() == 23603)   // Ustaag <Nostalrius> : Nefarian Class Call Mage
-        {
-            int rand = 0;
-            rand = urand(0, 2);
-            switch (rand)
-            {
-                case 0:
-                    target->SetDisplayId(1060);
-                    break;
-                case 1:
-                    target->SetDisplayId(4473);
-                    break;
-                case 2:
-                    target->SetDisplayId(7898);
-                    break;
-            }
-        }
-        else if (m_modifier.m_miscvalue == 0)         // special case (spell specific functionality)
-        {
-            switch (GetId())
-            {
-                case 16739:                                 // Orb of Deception
-                {
-                    uint32 orb_model = target->GetNativeDisplayId();
-                    switch (orb_model)
-                    {
-                        // Troll Female
-                        case 1479:
-                            target->SetDisplayId(10134);
-                            break;
-                        // Troll Male
-                        case 1478:
-                            target->SetDisplayId(10135);
-                            break;
-                        // Tauren Male
-                        case 59:
-                            target->SetDisplayId(10136);
-                            break;
-                        // Human Male
-                        case 49:
-                            target->SetDisplayId(10137);
-                            break;
-                        // Human Female
-                        case 50:
-                            target->SetDisplayId(10138);
-                            break;
-                        // Orc Male
-                        case 51:
-                            target->SetDisplayId(10139);
-                            break;
-                        // Orc Female
-                        case 52:
-                            target->SetDisplayId(10140);
-                            break;
-                        // Dwarf Male
-                        case 53:
-                            target->SetDisplayId(10141);
-                            break;
-                        // Dwarf Female
-                        case 54:
-                            target->SetDisplayId(10142);
-                            break;
-                        // NightElf Male
-                        case 55:
-                            target->SetDisplayId(10143);
-                            break;
-                        // NightElf Female
-                        case 56:
-                            target->SetDisplayId(10144);
-                            break;
-                        // Undead Female
-                        case 58:
-                            target->SetDisplayId(10145);
-                            break;
-                        // Undead Male
-                        case 57:
-                            target->SetDisplayId(10146);
-                            break;
-                        // Tauren Female
-                        case 60:
-                            target->SetDisplayId(10147);
-                            break;
-                        // Gnome Male
-                        case 1563:
-                            target->SetDisplayId(10148);
-                            break;
-                        // Gnome Female
-                        case 1564:
-                            target->SetDisplayId(10149);
-                            break;
-                        default:
-                            break;
-                    }
-                    break;
-                }
-                default:
-                    sLog.outError("Aura::HandleAuraTransform, spell %u does not have creature entry defined, need custom defined model.", GetId());
-                    break;
-            }
-        }
-        else
-        {
-            uint32 model_id;
-
-            CreatureInfo const * ci = ObjectMgr::GetCreatureTemplate(m_modifier.m_miscvalue);
-            if (!ci)
-            {
-                model_id = 16358;                           // pig pink ^_^
-                sLog.outError("Auras: unknown creature id = %d (only need its modelid) Form Spell Aura Transform in Spell ID = %d", m_modifier.m_miscvalue, GetId());
-            }
-            else
-                model_id = Creature::ChooseDisplayId(ci);   // Will use the default model here
-
-            target->SetDisplayId(model_id);
-
-            // creature case, need to update equipment
-            if (ci && target->GetTypeId() == TYPEID_UNIT)
-                ((Creature*)target)->LoadEquipment(ci->equipmentId, true);
-        }
-
+        
         // update active transform spell only not set or not overwriting negative by positive case
         if (!target->getTransForm() || !IsPositiveSpell(GetId()) || IsPositiveSpell(target->getTransForm()))
+        {
+            if (GetId() == 23603)   // Ustaag <Nostalrius> : Nefarian Class Call Mage
+            {
+                int rand = 0;
+                rand = urand(0, 2);
+                switch (rand)
+                {
+                    case 0:
+                        model_id = 1060;
+                        break;
+                    case 1:
+                        model_id = 4473;
+                        break;
+                    case 2:
+                        model_id = 7898;
+                        break;
+                }
+            }
+            else if (m_modifier.m_miscvalue == 0)         // special case (spell specific functionality)
+            {
+                switch (GetId())
+                {
+                    case 16739:                                 // Orb of Deception
+                    {
+                        uint32 orb_model = target->GetNativeDisplayId();
+                        switch (orb_model)
+                        {
+                            // Troll Female
+                            case 1479:
+                                model_id = 10134;
+                                break;
+                            // Troll Male
+                            case 1478:
+                                model_id = 10135;
+                                break;
+                            // Tauren Male
+                            case 59:
+                                model_id = 10136;
+                                break;
+                            // Human Male
+                            case 49:
+                                model_id = 10137;
+                                break;
+                            // Human Female
+                            case 50:
+                                model_id = 10138;
+                                break;
+                            // Orc Male
+                            case 51:
+                                model_id = 10139;
+                                break;
+                            // Orc Female
+                            case 52:
+                                model_id = 10140;
+                                break;
+                            // Dwarf Male
+                            case 53:
+                                model_id = 10141;
+                                break;
+                            // Dwarf Female
+                            case 54:
+                                model_id = 10142;
+                                break;
+                            // NightElf Male
+                            case 55:
+                                model_id = 10143;
+                                break;
+                            // NightElf Female
+                            case 56:
+                                model_id = 10144;
+                                break;
+                            // Undead Female
+                            case 58:
+                                model_id = 10145;
+                                break;
+                            // Undead Male
+                            case 57:
+                                model_id = 10146;
+                                break;
+                            // Tauren Female
+                            case 60:
+                                model_id = 10147;
+                                break;
+                            // Gnome Male
+                            case 1563:
+                                model_id = 10148;
+                                break;
+                            // Gnome Female
+                            case 1564:
+                                model_id = 10149;
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    }
+                    default:
+                        sLog.outError("Aura::HandleAuraTransform, spell %u does not have creature entry defined, need custom defined model.", GetId());
+                        break;
+                }
+            }
+            else
+            {
+                CreatureInfo const * ci = ObjectMgr::GetCreatureTemplate(m_modifier.m_miscvalue);
+                if (!ci)
+                {
+                    model_id = 16358;                           // pig pink ^_^
+                    sLog.outError("Auras: unknown creature id = %d (only need its modelid) Form Spell Aura Transform in Spell ID = %d", m_modifier.m_miscvalue, GetId());
+                }
+                else
+                    model_id = Creature::ChooseDisplayId(ci);   // Will use the default model here
+
+                // creature case, need to update equipment
+                if (ci && target->GetTypeId() == TYPEID_UNIT)
+                    ((Creature*)target)->LoadEquipment(ci->equipmentId, true);
+            }
+
+            target->SetDisplayId(model_id);
             target->setTransForm(GetId());
+        }
     }
     else
     {
