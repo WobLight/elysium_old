@@ -2342,6 +2342,17 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
                     ((Creature*)target)->LoadEquipment(ci->equipmentId, true);
             }
 
+            //fix tauren scaling
+            if (!target->getTransForm() && target->GetShapeshiftForm() == FORM_NONE && target->getRace() == RACE_TAUREN)
+            {
+                float mod_x = 0;
+                if (target->getGender() == GENDER_MALE)
+                    mod_x = -25.9f; // 0.741 * 1.35 ~= 1.0
+                else
+                    mod_x = -20.0f; // 0.8 * 1.25    = 1.0
+                target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
+            }
+            
             target->SetDisplayId(model_id);
             target->setTransForm(GetId());
         }
@@ -2351,6 +2362,17 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
         //reset cosmetics only if it's the current transform
         if (target->getTransForm() == GetId())
         {
+            //fix tauren scaling
+            if (target->getRace() == RACE_TAUREN)
+            {
+                float mod_x = 0;
+                if (target->getGender() == GENDER_MALE)
+                    mod_x = -25.9f; // 0.741 * 1.35 ~= 1.0
+                else
+                    mod_x = -20.0f; // 0.8 * 1.25    = 1.0
+                target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
+            }
+        
             target->setTransForm(0);
             target->SetDisplayId(target->GetNativeDisplayId());
 
