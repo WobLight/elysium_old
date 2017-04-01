@@ -2081,7 +2081,6 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
         }
     }
 
-    sLog.outInfo("DEBUG %d %d %d %d", apply, Real, modelid, target->HasAuraType(SPELL_AURA_TRANSFORM));
     if (modelid > 0 && !target->getTransForm())
     {
         // fix Tauren shapeshift scaling
