@@ -2361,17 +2361,6 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
         //reset cosmetics only if it's the current transform
         if (target->getTransForm() == GetId())
         {
-            //fix tauren scaling
-            if (target->getRace() == RACE_TAUREN)
-            {
-                float mod_x = 0;
-                if (target->getGender() == GENDER_MALE)
-                    mod_x = -25.9f; // 0.741 * 1.35 ~= 1.0
-                else
-                    mod_x = -20.0f; // 0.8 * 1.25    = 1.0
-                target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
-            }
-        
             target->setTransForm(0);
             target->SetDisplayId(target->GetNativeDisplayId());
 
@@ -2383,6 +2372,17 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
             Unit::AuraList const& otherTransforms = target->GetAurasByType(SPELL_AURA_TRANSFORM);
             if (!otherTransforms.empty())
             {
+                //fix tauren scaling
+                if (target->getRace() == RACE_TAUREN && target->GetShapeshiftForm() == FORM_NONE)
+                {
+                    float mod_x = 0;
+                    if (target->getGender() == GENDER_MALE)
+                        mod_x = -25.9f; // 0.741 * 1.35 ~= 1.0
+                    else
+                        mod_x = -20.0f; // 0.8 * 1.25    = 1.0
+                    target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
+                }
+            
                 // look for other transform auras
                 Aura* handledAura = *otherTransforms.rbegin();
                 for (Unit::AuraList::const_reverse_iterator i = otherTransforms.rbegin(); i != otherTransforms.rend(); ++i)
@@ -2398,6 +2398,17 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
             }
             else //reapply shapeshifting, there should be only one.
             {
+                //fix tauren scaling
+                if (target->getRace() == RACE_TAUREN)
+                {
+                    float mod_x = 0;
+                    if (target->getGender() == GENDER_MALE)
+                        mod_x = -25.9f; // 0.741 * 1.35 ~= 1.0
+                    else
+                        mod_x = -20.0f; // 0.8 * 1.25    = 1.0
+                    target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, mod_x, apply);
+                }
+                
                 Unit::AuraList const& shapeshift = target->GetAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
                 if (!shapeshift.empty())
                     shapeshift.front()->HandleAuraModShapeshift(true,false);
