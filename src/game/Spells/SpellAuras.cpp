@@ -2410,7 +2410,7 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
                 }
                 
                 Unit::AuraList const& shapeshift = target->GetAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
-                if (!shapeshift.empty())
+                if (!shapeshift.empty() && !shapeshift.front()->IsInUse())
                     shapeshift.front()->HandleAuraModShapeshift(true,false);
             }
         }
