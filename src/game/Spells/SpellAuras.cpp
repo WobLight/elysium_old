@@ -2070,10 +2070,6 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                     iter = slowingAuras.begin();
                 }
 
-                // and polymorphic affects
-                if (target->IsPolymorphed())
-                    target->RemoveAurasDueToSpell(target->getTransForm());
-
                 break;
             }
             default:
