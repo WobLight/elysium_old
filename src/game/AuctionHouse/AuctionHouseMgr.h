@@ -90,7 +90,8 @@ struct AuctionHouseClientQuery
     uint8 levelmin;
     uint8 levelmax;
     uint8 usable;
-    uint32 listfrom, auctionSlotID, auctionMainCategory, auctionSubCategory, quality;
+    uint32 listfrom;
+    int32 auctionSlotID, auctionMainCategory, auctionSubCategory, quality;
 };
 
 //this class is used as auctionhouse instance

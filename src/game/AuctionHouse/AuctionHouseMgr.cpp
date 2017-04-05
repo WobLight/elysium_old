@@ -679,8 +679,8 @@ void AuctionHouseObject::BuildListAuctionItems(WorldPacket& data, Player* player
         uint32& count, uint32& totalcount)
 {
     // Happening often, and easy to deal with
-    if (query.auctionMainCategory == 0xffffffff && query.auctionSubCategory == 0xffffffff && query.auctionSlotID == 0xffffffff &&
-        query.quality == 0xffffffff && query.levelmin == 0x00 && query.levelmax == 0x00 && query.usable == 0x00 && query.wsearchedname.empty())
+    if (query.auctionMainCategory == -1 && query.auctionSubCategory == -1 && query.auctionSlotID == -1 &&
+        query.quality == -1 && !query.levelmin && !query.levelmax && !query.usable && query.wsearchedname.empty())
     {
         totalcount = AuctionsMap.size();
         if (query.listfrom < totalcount)
@@ -711,26 +711,26 @@ void AuctionHouseObject::BuildListAuctionItems(WorldPacket& data, Player* player
         {
             ItemPrototype const *proto = item->GetProto();
 
-            if (query.auctionMainCategory != 0xffffffff && proto->Class != query.auctionMainCategory)
+            if (query.auctionMainCategory != -1 && proto->Class != query.auctionMainCategory)
                 continue;
 
-            if (query.auctionSubCategory != 0xffffffff && proto->SubClass != query.auctionSubCategory)
+            if (query.auctionSubCategory != -1 && proto->SubClass != query.auctionSubCategory)
                 continue;
 
-            if (query.auctionSlotID != 0xffffffff && proto->InventoryType != query.auctionSlotID &&
+            if (query.auctionSlotID != -1 && proto->InventoryType != query.auctionSlotID &&
                     (query.auctionSlotID != INVTYPE_CHEST ||  query.auctionSlotID == INVTYPE_CHEST && proto->InventoryType != INVTYPE_ROBE))
                 continue;
 
-            if (query.quality != 0xffffffff && proto->Quality < query.quality)
+            if (query.quality != -1 && proto->Quality < query.quality)
                 continue;
 
-            if (query.levelmin != 0x00 && (proto->RequiredLevel < query.levelmin || (query.levelmax != 0x00 && proto->RequiredLevel > query.levelmax)))
+            if (query.levelmin && (proto->RequiredLevel < query.levelmin || (query.levelmax && proto->RequiredLevel > query.levelmax)))
                 continue;
 
-            if (query.usable != 0x00 && player->CanUseItem(item) != EQUIP_ERR_OK)
+            if (query.usable && player->CanUseItem(item) != EQUIP_ERR_OK)
                 continue;
 
-            if (query.usable != 0x00 && proto->Class == ITEM_CLASS_RECIPE)
+            if (query.usable && proto->Class == ITEM_CLASS_RECIPE)
                 if (SpellEntry const* spell = sSpellMgr.GetSpellEntry(proto->Spells[0].SpellId))
                     if (player->HasSpell(spell->EffectTriggerSpell[EFFECT_INDEX_0]))
                         continue;
