@@ -47,6 +47,17 @@ void ThreadPool::processWorkload()
     m_waitForWork.notify_all();
 }
 
+void ThreadPool::setWorkload(std::vector<std::function<void ()> > &workload, bool safe)
+{
+    if (workload.empty())
+        return;
+    if (safe)
+        waitForFinished();
+
+    m_workload = workload;
+    processWorkload();
+}
+
 void ThreadPool::setWorkload(std::vector<std::function<void()> > &&workload, bool safe)
 {
     if (workload.empty())

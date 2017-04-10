@@ -52,6 +52,7 @@ public:
      * @param workload
      * @param safe if true, it will wait for previous workload to be done
      */
+    void setWorkload(std::vector<std::function<void()>>& workload, bool safe = false);
     void setWorkload(std::vector<std::function<void()>>&& workload, bool safe = false);
 
     /**
