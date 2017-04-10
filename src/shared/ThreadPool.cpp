@@ -99,7 +99,7 @@ void ThreadPool::waitForWork(int id)
 ThreadPool &ThreadPool::operator<<(std::function<void()> packaged_task)
 {
     if (m_dirty) m_workload.clear();
-    m_workload.emplace_back(std::move(packaged_task));
+    m_workload.emplace_back(packaged_task);
     return *this;
 }
 
