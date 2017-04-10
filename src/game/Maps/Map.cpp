@@ -782,7 +782,7 @@ inline void Map::UpdateCells(uint32 map_diff)
             delete threads[i];
         }
     }
-#else
+#elif 1
     if (IsContinent() && m_cellsThreads->isStarted())
     {
         std::vector<std::function<void()>> queue;
@@ -792,6 +792,17 @@ inline void Map::UpdateCells(uint32 map_diff)
                     (*it)->GetMotionMaster()->UpdateMotionAsync(diff);
             });
         m_cellsThreads->setWorkload(std::move(queue));
+        m_cellsThreads->waitForFinished();
+    }
+#else
+    if (IsContinent() && m_cellsThreads->isStarted())
+    {
+        for (std::set<Unit*>::iterator it = unitsMvtUpdate.begin(); it != unitsMvtUpdate.end(); it++)
+            m_cellsThreads << [it,diff](){
+                 if ((*it)->IsInWorld())
+                    (*it)->GetMotionMaster()->UpdateMotionAsync(diff);
+            };
+        m_cellsThreads->processWorkload();
         m_cellsThreads->waitForFinished();
     }
 #endif
@@ -2712,7 +2723,7 @@ void Map::ScriptsProcess()
                     }
                 }
 
-                Creature* pCreature = summoner->SummonCreature(step.script->summonCreature.creatureEntry, x, y, z, o, 
+                Creature* pCreature = summoner->SummonCreature(step.script->summonCreature.creatureEntry, x, y, z, o,
                     TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, step.script->summonCreature.despawnDelay, step.script->summonCreature.flags & SUMMON_CREATURE_ACTIVE);
 
                 if (!pCreature)
