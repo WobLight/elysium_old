@@ -49,6 +49,8 @@
 #include "MovementBroadcaster.h"
 #include "PlayerBroadcaster.h"
 #include "GridSearchers.h"
+#include "ThreadPool.h"
+#include <chrono>
 
 #define MAX_GRID_LOAD_TIME      50
 
@@ -94,7 +96,8 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId)
       m_updateFinished(false), m_updateDiffMod(0), m_GridActivationDistance(DEFAULT_VISIBILITY_DISTANCE),
       _lastPlayersUpdate(WorldTimer::getMSTime()), _lastMapUpdate(WorldTimer::getMSTime()),
       _lastCellsUpdate(WorldTimer::getMSTime()), _inactivePlayersSkippedUpdates(0),
-      _objUpdatesThreads(0), _unitRelocationThreads(0), _lastPlayerLeftTime(0)
+      _objUpdatesThreads(0), _unitRelocationThreads(0), _lastPlayerLeftTime(0),
+      m_cellsThreads(new ThreadPool(sWorld.getConfig(CONFIG_UINT32_CONTINENTS_MOTIONUPDATE_THREADS)))
 {
     m_CreatureGuids.Set(sObjectMgr.GetFirstTemporaryCreatureLowGuid());
     m_GameObjectGuids.Set(sObjectMgr.GetFirstTemporaryGameObjectLowGuid());
@@ -117,6 +120,7 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId)
 
     m_persistentState = sMapPersistentStateMgr.AddPersistentState(i_mapEntry, GetInstanceId(), 0, IsDungeon());
     m_persistentState->SetUsedByMapState(this);
+    m_cellsThreads->start();
 }
 
 // Nostalrius
@@ -761,6 +765,11 @@ inline void Map::UpdateCells(uint32 map_diff)
     else
         UpdateActiveCellsSynch(now, diff);
 
+    static double avarage = 0;
+    static double dev = 0;
+    static int count = 0;
+    auto start = std::chrono::high_resolution_clock::now();
+#if 0
     int nthreads = sWorld.getConfig(CONFIG_UINT32_CONTINENTS_MOTIONUPDATE_THREADS);
     if (IsContinent() && nthreads)
     {
@@ -773,6 +782,25 @@ inline void Map::UpdateCells(uint32 map_diff)
             delete threads[i];
         }
     }
+#else
+    if (IsContinent() && m_cellsThreads->isStarted())
+    {
+        std::vector<std::function<void()>> queue;
+        for (std::set<Unit*>::iterator it = unitsMvtUpdate.begin(); it != unitsMvtUpdate.end(); it++)
+            queue.emplace_back([it,diff](){
+                 if ((*it)->IsInWorld())
+                    (*it)->GetMotionMaster()->UpdateMotionAsync(diff);
+            });
+        m_cellsThreads->setWorkload(std::move(queue));
+        m_cellsThreads->waitForFinished();
+    }
+#endif
+    auto finish = std::chrono::high_resolution_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / 1'000'000.;
+    double old = avarage;
+    avarage = (avarage * count + time)/++count;
+    if (count > 1) dev = ((count -2)*dev + (count -1) * std::pow(old - avarage,2)+(time - std::pow(avarage,2)))/(count -1);
+    sLog.outInfo("DEBUG %.4f±%.4f",avarage, std::sqrt(dev));
     unitsMvtUpdate.clear();
 }
 
