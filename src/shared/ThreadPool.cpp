@@ -31,6 +31,7 @@ void ThreadPool::start()
         return;
     for (int i = 0; i < m_size; i++)
         m_workers.emplace_back(new worker([this,i](){this->workerLoop(i);}));
+    m_waitForWork.notify_all();
 }
 
 void ThreadPool::processWorkload()
@@ -38,9 +39,10 @@ void ThreadPool::processWorkload()
     if (m_workload.empty())
         return;
     for (int i = 0; i < m_size; i++)
+    {
         m_workers[i]->it = m_workload.begin() + i;
-    for (workers_t::iterator it = m_workers.begin(); it < m_workers.end(); it++)
-        (*it)->busy = true;
+        m_workers[i]->busy = true;
+    }
     m_waitForWork.notify_all();
 }
 
@@ -89,6 +91,11 @@ ThreadPool &ThreadPool::operator<<(std::function<void()> &&packaged_task)
 }
 
 void ThreadPool::workerLoop(int id){ // WORKER THREAD LOOP
+    {
+        std::unique_lock<std::mutex> lock(m_mutex); //locked!
+        while(m_size != m_workers.size())
+            m_waitForWork.wait(lock);
+    } //destroy lock
     while(true)
     {
         waitForWork(id);

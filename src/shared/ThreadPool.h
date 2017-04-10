@@ -87,7 +87,7 @@ public:
      */
     ThreadPool& operator<<(auto f)
     {
-        m_workload.emplace_back(wrap(f));
+        m_workload.emplace_back(f);
         return *this;
     }
 
