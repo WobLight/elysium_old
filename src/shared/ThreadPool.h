@@ -77,19 +77,7 @@ public:
      * @param function
      * @return
      */
-    ThreadPool& operator<<(std::function<void()> &&function);
-
-    /**
-     * @brief operator << add a task to the workload
-     * NOT threadsafe
-     * @param f
-     * @return
-     */
-    ThreadPool& operator<<(auto f)
-    {
-        m_workload.emplace_back(f);
-        return *this;
-    }
+    ThreadPool& operator<<(std::function<void()> function);
 
 private:
     void waitForWork(int id);
@@ -114,6 +102,7 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_waitForWork;
     std::vector<std::function<void()>> m_workload;
+    bool m_dirty;
     void workerLoop(int id);
 };
 

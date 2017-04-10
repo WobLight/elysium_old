@@ -20,7 +20,7 @@
 #include "Log.h"
 
 ThreadPool::ThreadPool(int numThreads) :
-    m_size(numThreads)
+    m_size(numThreads), m_dirty(false)
 {
     m_workers.reserve(m_size);
 }
@@ -38,6 +38,7 @@ void ThreadPool::processWorkload()
 {
     if (m_workload.empty())
         return;
+    m_dirty = true;
     for (int i = 0; i < m_size; i++)
     {
         m_workers[i]->it = m_workload.begin() + i;
@@ -84,8 +85,9 @@ void ThreadPool::waitForWork(int id)
         m_waitForWork.wait(lock);
 }
 
-ThreadPool &ThreadPool::operator<<(std::function<void()> &&packaged_task)
+ThreadPool &ThreadPool::operator<<(std::function<void()> packaged_task)
 {
+    if (m_dirty) m_workload.clear();
     m_workload.emplace_back(std::move(packaged_task));
     return *this;
 }
