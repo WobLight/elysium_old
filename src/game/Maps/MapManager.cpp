@@ -285,8 +285,8 @@ void MapManager::Update(uint32 diff)
         return;
 
     uint32 mapsDiff = (uint32)i_timer.GetCurrent();
-    std::stack<std::future<void>> instanceUpdaters;
-    std::stack<std::future<void>> continentsUpdaters;
+    std::vector<std::function<void()>> instanceUpdaters;
+    std::vector<std::function<void()>> continentsUpdaters;
 
     int continentsIdx = 0;
     uint32 now = WorldTimer::getMSTime();
@@ -304,7 +304,7 @@ void MapManager::Update(uint32 diff)
         if (iter->second->Instanceable())
         {
             if (m_threads->isStarted())
-                instanceUpdaters.emplace(ThreadPool::wrap([iter,mapsDiff](){iter->second->DoUpdate(mapsDiff);}));
+                instanceUpdaters.emplace_back([iter,mapsDiff](){iter->second->DoUpdate(mapsDiff);});
             else
                 iter->second->Update(mapsDiff);
         }
@@ -312,7 +312,7 @@ void MapManager::Update(uint32 diff)
         {
             iter->second->SetMapUpdateIndex(continentsIdx++);
             if (m_threads->isStarted())
-                continentsUpdaters.emplace(ThreadPool::wrap([iter,mapsDiff](){iter->second->DoUpdate(mapsDiff);}));
+                continentsUpdaters.emplace_back([iter,mapsDiff](){iter->second->DoUpdate(mapsDiff);});
             else
                 iter->second->Update(mapsDiff);
         }

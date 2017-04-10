@@ -17,6 +17,7 @@
  */
 
 #include "ThreadPool.h"
+#include "Log.h"
 
 ThreadPool::ThreadPool(int numThreads) :
     m_size(numThreads)
@@ -28,35 +29,45 @@ void ThreadPool::start()
 {
     if (!m_workers.empty())
         return;
-    for (auto i = 0; i < m_size; i++)
-        m_workers.emplace_back([this,i](){this->workerLoop(i);});
+    for (int i = 0; i < m_size; i++)
+        m_workers.emplace_back(new worker([this,i](){this->workerLoop(i);}));
 }
 
-void ThreadPool::setWorkload(std::stack<std::future<void> > &&workload, bool safe)
+void ThreadPool::processWorkload()
 {
-    std::unique_lock<std::mutex> lock;
+    if (m_workload.empty())
+        return;
+    for (int i = 0; i < m_size; i++)
+        m_workers[i]->it = m_workload.begin() + i;
+    for (workers_t::iterator it = m_workers.begin(); it < m_workers.end(); it++)
+        (*it)->busy = true;
+    m_waitForWork.notify_all();
+}
+
+void ThreadPool::setWorkload(std::vector<std::function<void()> > &&workload, bool safe)
+{
+    if (workload.empty())
+        return;
     if (safe)
-        lock = std::unique_lock<std::mutex>(m_mutex);
+        waitForFinished();
 
     m_workload = std::move(workload);
-    m_waitForWork.notify_one();
+    processWorkload();
 }
 
 void ThreadPool::waitForFinished()
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
-    while(!m_workload.empty() || m_activeWorkers)
-        m_waitForFinished.wait(lock);
-}
-
-bool ThreadPool::isWorking()
-{
-    return m_activeWorkers != 0;
+    for (workers_t::iterator it = m_workers.begin(); it < m_workers.end(); it++)
+    {
+        std::unique_lock<std::mutex> lock((*it)->mutex);
+        while ((*it)->busy)
+            (*it)->waitForFinished.wait(lock);
+    }
 }
 
 bool ThreadPool::isStarted()
 {
-    return m_workers.size() > 0;
+    return !m_workers.empty();
 }
 
 int ThreadPool::size()
@@ -64,28 +75,31 @@ int ThreadPool::size()
     return m_size;
 }
 
-ThreadPool &ThreadPool::operator<<(std::future<void> &&future)
+void ThreadPool::waitForWork(int id)
 {
-    m_workload.emplace(std::move(future));
+    std::unique_lock<std::mutex> lock(m_mutex); //locked!
+    while(!m_workers[id]->busy) //wait for work
+        m_waitForWork.wait(lock);
+}
+
+ThreadPool &ThreadPool::operator<<(std::function<void()> &&packaged_task)
+{
+    m_workload.emplace_back(std::move(packaged_task));
+    return *this;
 }
 
 void ThreadPool::workerLoop(int id){ // WORKER THREAD LOOP
     while(true)
     {
-        std::unique_lock<std::mutex> lock(m_mutex); //locked!
-        while(m_workload.empty()) //wait for work
-            m_waitForWork.wait(lock);
-
-        m_activeWorkers++; //increment before to avoid having 0 workers with epty stack.
-        std::future<void> future = std::move(m_workload.top()); //get some work ...
-        m_workload.pop(); //... and remove it from available
-
-        m_waitForWork.notify_one(); // we're done picking a job, wake another worker
-        lock.unlock(); // unlock before starting to work
-        future.get(); // do work
-        lock.lock();
-        m_activeWorkers--; // we're done working ...
-        m_waitForFinished.notify_one(); // ... notify it
-        //we don't need to unlock, unique_lock lock will unlock the mutex on destruction
+        waitForWork(id);
+        while (m_workers[id]->it < m_workload.end())
+        {
+            (*m_workers[id]->it)(); // do work
+            m_workers[id]->it += m_size;
+        }
+        m_workers[id]->mutex.lock(); //locked!
+        m_workers[id]->busy = false;
+        m_workers[id]->waitForFinished.notify_all();
+        m_workers[id]->mutex.unlock(); //locked!
     }
 }

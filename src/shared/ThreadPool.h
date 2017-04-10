@@ -20,20 +20,22 @@
 #define THREADPOOL_H
 
 #include <vector>
-#include <stack>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <future>
+#include <functional>
 
 class ThreadPool
 {
 public:
+
     /**
      * @brief ThreadPool allocates memory, use ThreadPool::start() to spawn the threads.
      * @param numThreads the number of threads that will be created.
      */
     ThreadPool(int numThreads);
+
+    ThreadPool() = delete;
 
     /**
      * @brief start creates and start the treads.
@@ -41,11 +43,16 @@ public:
     void start();
 
     /**
-     * @brief setWorkload set the workload, discards current one
-     * @param workload
-     * @param safe if true, will behave threadsafe
+     * @brief processWorkload notify the threads that the workload is ready.
      */
-    void setWorkload(std::stack<std::future<void>>&& workload, bool safe = false);
+    void processWorkload();
+
+    /**
+     * @brief setWorkload set the next workload
+     * @param workload
+     * @param safe if true, it will wait for previous workload to be done
+     */
+    void setWorkload(std::vector<std::function<void()>>&& workload, bool safe = false);
 
     /**
      * @brief waitForFinished
@@ -53,14 +60,8 @@ public:
     void waitForFinished();
 
     /**
-     * @brief isWorking
-     * @return true if some thread is still running a task
-     */
-    bool isWorking();
-
-    /**
      * @brief isStarted
-     * @return true if threads were created
+     * @return true if the threads are spawned
      */
     bool isStarted();
 
@@ -73,10 +74,10 @@ public:
     /**
      * @brief operator << add a task to the workload
      * NOT threadsafe
-     * @param future
+     * @param function
      * @return
      */
-    ThreadPool& operator<<(std::future<void> &&future);
+    ThreadPool& operator<<(std::function<void()> &&function);
 
     /**
      * @brief operator << add a task to the workload
@@ -86,26 +87,40 @@ public:
      */
     ThreadPool& operator<<(auto f)
     {
-        m_workload.emplace(wrap(f));
-    }
-
-    /**
-     * @brief wrap convenient function to wrap a function properly.
-     * @param f
-     * @return
-     */
-    static inline std::future<void> wrap(auto f) {
-        return async(std::launch::deferred, f);
+        m_workload.emplace_back(wrap(f));
+        return *this;
     }
 
 private:
+    void waitForWork(int id);
+
+
+    struct worker{
+        worker(auto f) :
+            thread(f)
+        {
+        }
+
+        std::thread thread;
+        std::condition_variable waitForFinished;
+        bool busy;
+        std::mutex mutex;
+        std::vector<std::function<void()>>::iterator it;
+    };
+    using workers_t = std::vector<std::unique_ptr<worker>>;
+
+    workers_t m_workers;
     int m_size;
-    std::vector<std::thread> m_workers;
     std::mutex m_mutex;
-    u_int32_t m_activeWorkers = 0;
     std::condition_variable m_waitForWork;
-    std::condition_variable m_waitForFinished;
-    std::stack<std::future<void>> m_workload;
+    std::vector<std::function<void()>> m_workload;
     void workerLoop(int id);
 };
+
+std::unique_ptr<ThreadPool> & operator<<(std::unique_ptr<ThreadPool> & tp, auto f)
+{
+    (*tp) << f;
+    return tp;
+}
+
 #endif
