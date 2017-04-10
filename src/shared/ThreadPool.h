@@ -99,8 +99,8 @@ private:
         worker(auto f) :
             thread(f)
         {
+            thread.detach();
         }
-
         std::thread thread;
         std::condition_variable waitForFinished;
         bool busy;
