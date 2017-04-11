@@ -46,10 +46,24 @@ public:
     };
 
     /**
+     * @brief The ErrorHandling enum defines how the workers will manage tasks generating exceptions
+     *  NONE:       the error will propagate
+     *  IGNORE:     skip the current task
+     *  LOG:        skip the current task, logs the error
+     *  TERMINATE:  skip all remaning tasks
+     */
+    enum class ErrorHandling {
+        NONE,
+        IGNORE,
+        LOG,
+        TERMINATE
+    };
+
+    /**
      * @brief ThreadPool allocates memory, use ThreadPool::start() to spawn the threads.
      * @param numThreads the number of threads that will be created.
      */
-    ThreadPool(int numThreads, ClearMode when = ClearMode::AT_NEXT_WORKLOAD);
+    ThreadPool(int numThreads, ClearMode when = ClearMode::AT_NEXT_WORKLOAD, ErrorHandling mode = ErrorHandling::IGNORE);
 
     ThreadPool() = delete;
 
@@ -89,6 +103,12 @@ public:
     int size();
 
     /**
+     * @brief taskErrors always return an empty vector if ErrorHandling was set to IGNORE
+     * @return a vector containing all task exceptions generated during last processed workload
+     */
+    std::vector<std::exception_ptr> taskErrors();
+
+    /**
      * @brief operator << add a task to the workload
      * NOT threadsafe
      * @param function
@@ -96,25 +116,40 @@ public:
      */
     ThreadPool& operator<<(std::function<void()> function);
 
+    /**
+     * @brief clearWorkload
+     *  clear the current workload
+     *  WARNING: NOT threadsafe, call waitForFinished() first
+     */
+    void clearWorkload();
+
 private:
-    void waitForWork(int id);
 
 
     struct worker{
-        worker(auto f) :
-            thread(f)
+        worker(ThreadPool *pool, int id, ErrorHandling mode) :
+            id(id), errorHandling(mode), pool(pool), thread([this](){this->loop_wrapper();})
         {
-            thread.detach();
         }
-        std::thread thread;
+        ~worker();
+
+        void loop_wrapper();
+        void loop();
+        void waitForWork();
+
+        int id;
+        ErrorHandling errorHandling;
         std::condition_variable waitForFinished;
-        bool busy;
+        bool busy = false;
         std::mutex mutex;
         workload_t::iterator it;
+        ThreadPool *pool;
+        std::thread thread;
     };
     using workers_t = std::vector<std::unique_ptr<worker>>;
 
     Status m_status = Status::STOPPED;
+    ErrorHandling m_errorHandling;
     workers_t m_workers;
     int m_size;
     std::mutex m_mutex;
@@ -125,6 +160,7 @@ private:
     void workerLoop(int id);
     std::atomic<int> m_active;
     std::condition_variable m_waitForFinished;
+    std::vector<std::exception_ptr> m_errors;
 };
 
 std::unique_ptr<ThreadPool> & operator<<(std::unique_ptr<ThreadPool> & tp, auto f)
