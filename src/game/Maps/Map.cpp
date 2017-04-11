@@ -782,7 +782,7 @@ inline void Map::UpdateCells(uint32 map_diff)
             delete threads[i];
         }
     }
-#elif 1
+#elif 0
     if (IsContinent() && m_cellsThreads->isStarted())
     {
         std::vector<std::function<void()>> queue;
@@ -795,7 +795,7 @@ inline void Map::UpdateCells(uint32 map_diff)
         m_cellsThreads->waitForFinished();
     }
 #else
-    if (IsContinent() && m_cellsThreads->isStarted())
+    if (IsContinent() && m_cellsThreads->status() == ThreadPool::Status::READY)
     {
         for (std::set<Unit*>::iterator it = unitsMvtUpdate.begin(); it != unitsMvtUpdate.end(); it++)
             m_cellsThreads << [it,diff](){
