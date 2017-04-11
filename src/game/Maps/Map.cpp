@@ -97,7 +97,9 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId)
       _lastPlayersUpdate(WorldTimer::getMSTime()), _lastMapUpdate(WorldTimer::getMSTime()),
       _lastCellsUpdate(WorldTimer::getMSTime()), _inactivePlayersSkippedUpdates(0),
       _objUpdatesThreads(0), _unitRelocationThreads(0), _lastPlayerLeftTime(0),
-      m_cellsThreads(new ThreadPool(sWorld.getConfig(CONFIG_UINT32_CONTINENTS_MOTIONUPDATE_THREADS)))
+      m_cellsThreads(new ThreadPool(sWorld.getConfig(CONFIG_UINT32_CONTINENTS_MOTIONUPDATE_THREADS),
+                                    ThreadPool::ClearMode::AT_NEXT_WORKLOAD,
+                                    ThreadPool::ErrorHandling::LOG))
 {
     m_CreatureGuids.Set(sObjectMgr.GetFirstTemporaryCreatureLowGuid());
     m_GameObjectGuids.Set(sObjectMgr.GetFirstTemporaryGameObjectLowGuid());
@@ -783,7 +785,7 @@ inline void Map::UpdateCells(uint32 map_diff)
         }
     }
 #elif 0
-    if (IsContinent() && m_cellsThreads->isStarted())
+    if (IsContinent() && m_cellsThreads->status() == ThreadPool::Status::READY)
     {
         std::vector<std::function<void()>> queue;
         for (std::set<Unit*>::iterator it = unitsMvtUpdate.begin(); it != unitsMvtUpdate.end(); it++)
