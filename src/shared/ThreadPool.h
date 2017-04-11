@@ -25,6 +25,7 @@
 #include <condition_variable>
 #include <functional>
 #include <atomic>
+#include <shared_mutex>
 
 class ThreadPool
 {
@@ -63,7 +64,7 @@ public:
      * @brief ThreadPool allocates memory, use ThreadPool::start() to spawn the threads.
      * @param numThreads the number of threads that will be created.
      */
-    ThreadPool(int numThreads, ClearMode when = ClearMode::AT_NEXT_WORKLOAD, ErrorHandling mode = ErrorHandling::IGNORE);
+    ThreadPool(int numThreads, ClearMode when = ClearMode::AT_NEXT_WORKLOAD, ErrorHandling mode = ErrorHandling::NONE);
 
     ThreadPool() = delete;
 
@@ -139,10 +140,7 @@ private:
 
         int id;
         ErrorHandling errorHandling;
-        std::condition_variable waitForFinished;
         bool busy = false;
-        std::mutex mutex;
-        workload_t::iterator it;
         ThreadPool *pool;
         std::thread thread;
     };
@@ -159,8 +157,10 @@ private:
     bool m_dirty = false;
     void workerLoop(int id);
     std::atomic<int> m_active;
+    std::atomic<int> m_index;
     std::condition_variable m_waitForFinished;
     std::vector<std::exception_ptr> m_errors;
+    bool m_unlock;
 };
 
 std::unique_ptr<ThreadPool> & operator<<(std::unique_ptr<ThreadPool> & tp, auto f)

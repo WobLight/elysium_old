@@ -40,14 +40,13 @@ void ThreadPool::processWorkload()
 {
     if (m_workload.empty())
         return;
+    m_unlock = false;
     m_dirty = true;
     m_active = m_size;
+    m_index = 0;
     m_status = Status::PROCESSING;
     for (int i = 0; i < m_size; i++)
-    {
-        m_workers[i]->it = m_workload.begin() + i;
         m_workers[i]->busy = true;
-    }
     m_waitForWork.notify_all();
 }
 
@@ -141,7 +140,6 @@ void ThreadPool::worker::loop_wrapper()
 
             if (pool->m_errorHandling == ErrorHandling::IGNORE)
             {
-                it += pool->m_size;
                 loop_wrapper();
                 return;
             }
@@ -166,8 +164,6 @@ void ThreadPool::worker::loop_wrapper()
             }
             if (pool->m_errorHandling == ErrorHandling::TERMINATE)
                 pool->m_status = Status::ERROR;
-            else
-                it += pool->m_size;
             loop_wrapper();
         }
 }
@@ -177,15 +173,14 @@ void ThreadPool::worker::loop()
     while(true)
     {
         waitForWork();
-        while (it < pool->m_workload.end() && pool->m_status == Status::PROCESSING)
+        int i = pool->m_index++;
+        while (i < pool->m_workload.size() && pool->m_status == Status::PROCESSING)
         {
-            (*it)(); // do work
-            it += pool->m_size;
+            pool->m_workload[i]();
+            i = pool->m_index++;
         }
-        mutex.lock(); //locked!
         busy = false;
-        waitForFinished.notify_all();
-        mutex.unlock(); //locked!
+
         int remaning = --(pool->m_active);
         if (!remaning)
         {
