@@ -24,10 +24,12 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include <atomic>
 
 class ThreadPool
 {
 public:
+    using workload_t = std::vector<std::function<void()>>;
 
     /**
      * @brief ThreadPool allocates memory, use ThreadPool::start() to spawn the threads.
@@ -52,8 +54,8 @@ public:
      * @param workload
      * @param safe if true, it will wait for previous workload to be done
      */
-    void setWorkload(std::vector<std::function<void()>>& workload, bool safe = false);
-    void setWorkload(std::vector<std::function<void()>>&& workload, bool safe = false);
+    void setWorkload(workload_t& workload, bool safe = false);
+    void setWorkload(workload_t&& workload, bool safe = false);
 
     /**
      * @brief waitForFinished
@@ -94,7 +96,7 @@ private:
         std::condition_variable waitForFinished;
         bool busy;
         std::mutex mutex;
-        std::vector<std::function<void()>>::iterator it;
+        workload_t::iterator it;
     };
     using workers_t = std::vector<std::unique_ptr<worker>>;
 
@@ -102,7 +104,7 @@ private:
     int m_size;
     std::mutex m_mutex;
     std::condition_variable m_waitForWork;
-    std::vector<std::function<void()>> m_workload;
+    workload_t m_workload;
     bool m_dirty;
     void workerLoop(int id);
 };
