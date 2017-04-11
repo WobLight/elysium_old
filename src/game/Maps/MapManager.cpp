@@ -303,7 +303,7 @@ void MapManager::Update(uint32 diff)
         iter->second->SetMapUpdateIndex(-1);
         if (iter->second->Instanceable())
         {
-            if (m_threads->isStarted())
+            if (m_threads->status() == ThreadPool::Status::READY)
                 instanceUpdaters.emplace_back([iter,mapsDiff](){iter->second->DoUpdate(mapsDiff);});
             else
                 iter->second->Update(mapsDiff);
@@ -311,7 +311,7 @@ void MapManager::Update(uint32 diff)
         else // One threat per continent part
         {
             iter->second->SetMapUpdateIndex(continentsIdx++);
-            if (m_threads->isStarted())
+            if (m_threads->status() == ThreadPool::Status::READY)
                 continentsUpdaters.emplace_back([iter,mapsDiff](){iter->second->DoUpdate(mapsDiff);});
             else
                 iter->second->Update(mapsDiff);

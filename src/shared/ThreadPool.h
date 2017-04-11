@@ -31,11 +31,25 @@ class ThreadPool
 public:
     using workload_t = std::vector<std::function<void()>>;
 
+    enum class Status {
+        ERROR = -1,
+        STOPPED,
+        STARTING,
+        READY,
+        PROCESSING
+    };
+
+    enum class ClearMode {
+        NEVER,
+        UPPON_COMPLETION,
+        AT_NEXT_WORKLOAD
+    };
+
     /**
      * @brief ThreadPool allocates memory, use ThreadPool::start() to spawn the threads.
      * @param numThreads the number of threads that will be created.
      */
-    ThreadPool(int numThreads);
+    ThreadPool(int numThreads, ClearMode when = ClearMode::AT_NEXT_WORKLOAD);
 
     ThreadPool() = delete;
 
@@ -63,10 +77,10 @@ public:
     void waitForFinished();
 
     /**
-     * @brief isStarted
-     * @return true if the threads are spawned
+     * @brief status
+     * @return the current status
      */
-    bool isStarted();
+    Status status();
 
     /**
      * @brief size
@@ -100,13 +114,17 @@ private:
     };
     using workers_t = std::vector<std::unique_ptr<worker>>;
 
+    Status m_status = Status::STOPPED;
     workers_t m_workers;
     int m_size;
     std::mutex m_mutex;
     std::condition_variable m_waitForWork;
     workload_t m_workload;
-    bool m_dirty;
+    ClearMode m_clearMode;
+    bool m_dirty = false;
     void workerLoop(int id);
+    std::atomic<int> m_active;
+    std::condition_variable m_waitForFinished;
 };
 
 std::unique_ptr<ThreadPool> & operator<<(std::unique_ptr<ThreadPool> & tp, auto f)
