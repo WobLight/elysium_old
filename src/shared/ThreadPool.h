@@ -30,8 +30,13 @@
 
 class ThreadPool
 {
-public:
+private:
     struct worker_sq;
+    struct worker_mq;
+public:
+    using SingleQueue = worker_sq;
+    using MultiQueue = worker_mq;
+
     using workload_t = std::vector<std::function<void()>>;
 
     enum class Status {
@@ -73,7 +78,7 @@ public:
     /**
      * @brief start creates and start the treads.
      */
-    template<class WORKER_T = worker_sq>
+    template<class WORKER_T = SingleQueue>
     void start();
 
     /**
@@ -122,6 +127,7 @@ public:
      */
     void clearWorkload();
 
+private:
     struct worker {
         worker(ThreadPool *pool, int id, ErrorHandling mode) :
             id(id), errorHandling(mode), pool(pool), thread([this](){this->loop_wrapper();})
@@ -151,6 +157,7 @@ public:
 
         void doWork() override;
     };
+
     struct worker_mq : public worker{
         worker_mq(ThreadPool *pool, int id, ErrorHandling mode) :
             worker(pool,id,mode)
@@ -162,7 +169,7 @@ public:
 
         workload_t::iterator it;
     };
-private:
+
     using workers_t = std::vector<std::unique_ptr<worker>>;
 
     Status m_status = Status::STOPPED;
