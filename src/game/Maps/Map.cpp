@@ -793,8 +793,7 @@ inline void Map::UpdateCells(uint32 map_diff)
                  if ((*it)->IsInWorld())
                     (*it)->GetMotionMaster()->UpdateMotionAsync(diff);
             });
-        m_cellsThreads->setWorkload(std::move(queue));
-        m_cellsThreads->waitForFinished();
+        m_cellsThreads->processWorkload(std::move(queue)).wait();
     }
 #else
     if (IsContinent() && m_cellsThreads->status() == ThreadPool::Status::READY)
@@ -804,8 +803,8 @@ inline void Map::UpdateCells(uint32 map_diff)
                  if ((*it)->IsInWorld())
                     (*it)->GetMotionMaster()->UpdateMotionAsync(diff);
             };
-        m_cellsThreads->processWorkload();
-        m_cellsThreads->waitForFinished();
+        m_cellsThreads->processWorkload().wait();
+        //m_cellsThreads->waitForFinished();
     }
 #endif
     auto finish = std::chrono::high_resolution_clock::now();
