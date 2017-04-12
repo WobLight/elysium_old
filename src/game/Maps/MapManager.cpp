@@ -322,14 +322,13 @@ void MapManager::Update(uint32 diff)
     for (int i = 0; i < i_maxContinentThread; ++i)
         i_continentUpdateFinished[i] = false;
 
-    m_threads->setWorkload(std::move(continentsUpdaters));
-    m_threads->waitForFinished();
+    m_threads->processWorkload(std::move(continentsUpdaters)).wait();
 
-    m_threads->setWorkload(std::move(instanceUpdaters));
+    std::future<void> f = m_threads->processWorkload(std::move(instanceUpdaters));
 
     SwitchPlayersInstances();
 
-    m_threads->waitForFinished();
+    f.wait();
 
     delete[] i_continentUpdateFinished;
 

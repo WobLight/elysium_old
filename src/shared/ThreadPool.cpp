@@ -36,10 +36,16 @@ void ThreadPool::start()
     m_waitForWork.notify_all();
 }
 
-void ThreadPool::processWorkload()
+std::future<void> ThreadPool::processWorkload()
 {
+    if (m_status != Status::READY)
+        return std::future<void>();
+    m_result = std::promise<void>();
     if (m_workload.empty())
-        return;
+    {
+        m_result.set_value();
+        return m_result.get_future();
+    }
     m_unlock = false;
     m_dirty = true;
     m_active = m_size;
@@ -48,35 +54,23 @@ void ThreadPool::processWorkload()
     for (int i = 0; i < m_size; i++)
         m_workers[i]->busy = true;
     m_waitForWork.notify_all();
+    return m_result.get_future();
 }
 
-void ThreadPool::setWorkload(workload_t &workload, bool safe)
+std::future<void> ThreadPool::processWorkload(workload_t &workload)
 {
-    if (workload.empty())
-        return;
-    if (safe)
-        waitForFinished();
-
+    if (m_status != Status::READY)
+        return std::future<void>();
     m_workload = workload;
-    processWorkload();
+    return processWorkload();
 }
 
-void ThreadPool::setWorkload(workload_t &&workload, bool safe)
+std::future<void> ThreadPool::processWorkload(workload_t &&workload)
 {
-    if (workload.empty())
-        return;
-    if (safe)
-        waitForFinished();
-
+    if (m_status != Status::READY)
+        return std::future<void>();
     m_workload = std::move(workload);
-    processWorkload();
-}
-
-void ThreadPool::waitForFinished()
-{
-    std::unique_lock<std::mutex> lock(m_mutex);
-    while (m_status == Status::PROCESSING)
-        m_waitForFinished.wait(lock);
+    return processWorkload();
 }
 
 ThreadPool::Status ThreadPool::status()
@@ -186,10 +180,16 @@ void ThreadPool::worker::loop()
         {
             if (pool->m_clearMode == ClearMode::UPPON_COMPLETION)
                 pool->clearWorkload();
-            pool->m_mutex.lock();
-            pool->m_status = Status::READY;
-            pool->m_waitForFinished.notify_all();
-            pool->m_mutex.unlock();
+            if (pool->m_status == Status::ERROR)
+            {
+                pool->m_status = Status::READY;
+                pool->m_result.set_exception(pool->m_errors.front());
+            }
+            else
+            {
+                pool->m_status = Status::READY;
+                pool->m_result.set_value();
+            }
         }
     }
 }

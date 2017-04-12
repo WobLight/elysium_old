@@ -26,6 +26,7 @@
 #include <functional>
 #include <atomic>
 #include <shared_mutex>
+#include <future>
 
 class ThreadPool
 {
@@ -76,20 +77,15 @@ public:
     /**
      * @brief processWorkload notify the threads that the workload is ready.
      */
-    void processWorkload();
+    std::future<void> processWorkload();
 
     /**
      * @brief setWorkload set the next workload
      * @param workload
      * @param safe if true, it will wait for previous workload to be done
      */
-    void setWorkload(workload_t& workload, bool safe = false);
-    void setWorkload(workload_t&& workload, bool safe = false);
-
-    /**
-     * @brief waitForFinished
-     */
-    void waitForFinished();
+    std::future<void> processWorkload(workload_t &workload);
+    std::future<void> processWorkload(workload_t &&workload);
 
     /**
      * @brief status
@@ -158,8 +154,8 @@ private:
     void workerLoop(int id);
     std::atomic<int> m_active;
     std::atomic<int> m_index;
-    std::condition_variable m_waitForFinished;
     std::vector<std::exception_ptr> m_errors;
+    std::promise<void> m_result;
     bool m_unlock;
 };
 
