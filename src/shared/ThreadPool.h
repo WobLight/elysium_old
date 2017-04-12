@@ -31,6 +31,7 @@
 class ThreadPool
 {
 public:
+    struct worker_sq;
     using workload_t = std::vector<std::function<void()>>;
 
     enum class Status {
@@ -72,6 +73,7 @@ public:
     /**
      * @brief start creates and start the treads.
      */
+    template<class WORKER_T = worker_sq>
     void start();
 
     /**
@@ -120,10 +122,7 @@ public:
      */
     void clearWorkload();
 
-private:
-
-
-    struct worker{
+    struct worker {
         worker(ThreadPool *pool, int id, ErrorHandling mode) :
             id(id), errorHandling(mode), pool(pool), thread([this](){this->loop_wrapper();})
         {
@@ -132,6 +131,8 @@ private:
 
         void loop_wrapper();
         void loop();
+        virtual void doWork() = 0;
+        virtual void prepare();
         void waitForWork();
 
         int id;
@@ -139,7 +140,29 @@ private:
         bool busy = false;
         ThreadPool *pool;
         std::thread thread;
+
     };
+
+    struct worker_sq : public worker{
+        worker_sq(ThreadPool *pool, int id, ErrorHandling mode) :
+            worker(pool,id,mode)
+        {
+        }
+
+        void doWork() override;
+    };
+    struct worker_mq : public worker{
+        worker_mq(ThreadPool *pool, int id, ErrorHandling mode) :
+            worker(pool,id,mode)
+        {
+        }
+
+        void doWork() override;
+        void prepare() override;
+
+        workload_t::iterator it;
+    };
+private:
     using workers_t = std::vector<std::unique_ptr<worker>>;
 
     Status m_status = Status::STOPPED;
