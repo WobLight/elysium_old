@@ -184,12 +184,12 @@ void ThreadPool::worker::loop()
         int remaning = --(pool->m_active);
         if (!remaning)
         {
+            if (pool->m_clearMode == ClearMode::UPPON_COMPLETION)
+                pool->clearWorkload();
             pool->m_mutex.lock();
             pool->m_status = Status::READY;
             pool->m_waitForFinished.notify_all();
             pool->m_mutex.unlock();
-            if (pool->m_clearMode == ClearMode::UPPON_COMPLETION)
-                pool->clearWorkload();
         }
     }
 }
