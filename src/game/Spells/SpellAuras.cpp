@@ -2080,9 +2080,6 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
         target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, (mod_x -1)*100, apply);
     }
 
-    if (!Real)
-        return;
-
     if (apply)
     {
         Powers PowerType = POWER_MANA;
