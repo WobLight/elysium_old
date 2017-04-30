@@ -1954,15 +1954,15 @@ std::pair<unsigned int, float> getShapeshiftModelInfo(ShapeshiftForm form, Unit 
             modelid = 892;
         else
             modelid = 8571;
-        mod = 0.75;
+        mod = 0.80;
         break;
     case FORM_TRAVEL:
         modelid = 632;
-        mod = 0.75;
+        mod = 0.80;
         break;
     case FORM_AQUA:
         modelid = 2428;
-        mod = 0.75;
+        mod = 0.80;
         break;
     case FORM_BEAR:
         if (Player::TeamForRace(target->getRace()) == ALLIANCE)
@@ -1985,7 +1985,7 @@ std::pair<unsigned int, float> getShapeshiftModelInfo(ShapeshiftForm form, Unit 
         break;
     case FORM_GHOSTWOLF:
         modelid = 4613;
-        mod = 0.75;
+        mod = 0.80;
         break;
     case FORM_MOONKIN:
         if (Player::TeamForRace(target->getRace()) == ALLIANCE)
