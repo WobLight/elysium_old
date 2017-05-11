@@ -26,6 +26,7 @@
 #include "Object.h"
 #include "LootMgr.h"
 #include "ItemPrototype.h"
+#include "Lootable.h"
 
 class SpellEntry;
 class Bag;
@@ -230,7 +231,7 @@ struct ItemRequiredTarget
 
 bool ItemCanGoIntoBag(ItemPrototype const *proto, ItemPrototype const *pBagProto);
 
-class MANGOS_DLL_SPEC Item : public Object
+class MANGOS_DLL_SPEC Item : public Object, public Lootable
 {
     public:
         static Item* CreateItem(uint32 item, uint32 count, Player const* player = NULL);
@@ -320,8 +321,6 @@ class MANGOS_DLL_SPEC Item : public Object
         int32 GetSpellCharges(uint8 index/*0..5*/ = 0) const { return GetInt32Value(ITEM_FIELD_SPELL_CHARGES + index); }
         void SetSpellCharges(uint8 index/*0..5*/, int32 value) { SetInt32Value(ITEM_FIELD_SPELL_CHARGES + index,value); }
 
-        Loot loot;
-
         void SetLootState(ItemLootUpdateState state);
         bool HasGeneratedLoot() const { return m_lootState != ITEM_LOOT_NONE && m_lootState != ITEM_LOOT_REMOVED; }
         bool HasTemporaryLoot() const { return m_lootState == ITEM_LOOT_TEMPORARY; }
@@ -374,6 +373,12 @@ class MANGOS_DLL_SPEC Item : public Object
          * @return false iif the Item is corrupt.
          */
         bool WakeUp();
+
+        // Lootable interface
+public:
+        bool prepareLoot(Player *reciever, LootType loot_type, Player *pVictim, PermissionTypes &permission) override;
 };
+
+
 
 #endif

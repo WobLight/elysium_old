@@ -27,6 +27,7 @@
 #include "Object.h"
 #include "LootMgr.h"
 #include "Database/DatabaseEnv.h"
+#include "Lootable.h"
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
 #if defined( __GNUC__ )
@@ -541,7 +542,7 @@ struct GameObjectDisplayInfoEntry;
 
 #define GO_ANIMPROGRESS_DEFAULT 100                         // in 3.x 0xFF
 
-class MANGOS_DLL_SPEC GameObject : public WorldObject
+class MANGOS_DLL_SPEC GameObject : public WorldObject, public Lootable
 {
     public:
         explicit GameObject();
@@ -662,8 +663,6 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         void SaveRespawnTime();
 
-        Loot        loot;
-
         bool HasQuest(uint32 quest_id) const;
         bool HasInvolvedQuest(uint32 quest_id) const;
         bool ActivateToQuest(Player *pTarget) const;
@@ -736,5 +735,11 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         void SwitchDoorOrButton(bool activate, bool alternative = false);
 
         GridReference<GameObject> m_gridRef;
+
+        // Lootable interface
+public:
+        bool prepareLoot(Player *reciever, LootType loot_type, Player *pVictim, PermissionTypes &permission) override;
 };
+
+
 #endif

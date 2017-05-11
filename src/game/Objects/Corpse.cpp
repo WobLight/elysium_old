@@ -30,7 +30,7 @@
 #include "World.h"
 #include "ObjectMgr.h"
 
-Corpse::Corpse(CorpseType type) : WorldObject(), loot(NULL), lootRecipient(NULL), m_faction(NULL)
+Corpse::Corpse(CorpseType type) : WorldObject(), Lootable(nullptr), lootRecipient(nullptr), m_faction(nullptr)
 {
     m_objectType |= TYPEMASK_CORPSE;
     m_objectTypeId = TYPEID_CORPSE;
@@ -286,4 +286,111 @@ bool Corpse::IsExpired(time_t t) const
         return m_time < t - sWorld.getConfig(CONFIG_UINT32_BONES_EXPIRE_MINUTES) * MINUTE;
     else
         return m_time < t - 3 * DAY;
+}
+
+bool Corpse::prepareLoot(Player *reciever, LootType loot_type, Player *pVictim, PermissionTypes &permission)
+{
+
+    if (loot_type != LOOT_CORPSE && loot_type != LOOT_INSIGNIA)
+        return false;
+
+    if (!lootForBody)
+    {
+        lootForBody = true;
+        // uint32 pLevel = bones->loot.gold;
+        loot.clear();
+        // It may need a better formula
+        // Now it works like this: lvl10: ~6copper, lvl70: ~9silver
+        if (pVictim != nullptr)
+        {
+            uint32 level = pVictim->getLevel();
+            loot.gold = (uint32)(urand(50, 150) * 0.016f * pow(((float)level) / 5.76f, 2.5f) * sWorld.getConfig(CONFIG_FLOAT_RATE_DROP_MONEY));
+            loot._personal = true; // Everyone can loot the corpse
+            if (BattleGround* bg = reciever->GetBattleGround())
+            {
+                if (bg->GetTypeID() == BATTLEGROUND_AV)
+                {
+                    uint8 race = pVictim->getRace();
+                    uint32 rank = pVictim->GetHonorMgr().GetHighestRank().visualRank;
+                    uint32 raceItem = 0;
+                    uint32 rankItem = 0;
+                    uint32 questItem = 0;
+                    switch (race)
+                    {
+                    case RACE_HUMAN:
+                        raceItem = 18144;
+                        questItem = 17306;
+                        break;
+                    case RACE_DWARF:
+                        raceItem = 18206;
+                        questItem = 17306;
+                        break;
+                    case RACE_NIGHTELF:
+                        raceItem = 18142;
+                        questItem = 17306;
+                        break;
+                    case RACE_GNOME:
+                        raceItem = 18143;
+                        questItem = 17306;
+                        break;
+                    case RACE_ORC:
+                        raceItem = 18207;
+                        questItem = 17423;
+                        break;
+                    case RACE_UNDEAD:
+                        raceItem = 18147;
+                        questItem = 17423;
+                        break;
+                    case RACE_TAUREN:
+                        raceItem = 18145;
+                        questItem = 17423;
+                        break;
+                    case RACE_TROLL:
+                        raceItem = 18146;
+                        questItem = 17423;
+                        break;
+                    }
+                    if (rank < 6)
+                        if (pVictim->GetTeam() == ALLIANCE)
+                            rankItem = 17326;
+                        else
+                            rankItem = 17502;
+                    else if (rank < 10)
+                        if (pVictim->GetTeam() == ALLIANCE)
+                            rankItem = 17327;
+                        else
+                            rankItem = 17503;
+                    else if (pVictim->GetTeam() == ALLIANCE)
+                        rankItem = 17328;
+                    else
+                        rankItem = 17504;
+
+                    if (raceItem > 0)
+                    {
+                        LootStoreItem storeitem = LootStoreItem(raceItem, 100, 0, 0, 1, 1);
+                        loot.AddItem(storeitem);
+                    }
+                    if (questItem > 0)
+                    {
+                        LootStoreItem storeitem = LootStoreItem(questItem, 100, 0, 0, 1, 1);
+                        loot.AddItem(storeitem);
+                    }
+                    if (rankItem > 0)
+                    {
+                        LootStoreItem storeitem = LootStoreItem(rankItem, 75, 0, 0, 0, 1);
+                        loot.AddItem(storeitem);
+                    }
+
+                    LootStoreItem storeitem = LootStoreItem(17422, 75, 0, 0, 0, 20);
+                    loot.AddItem(storeitem);
+                }
+            }
+        }
+    }
+
+    permission = ALL_PERMISSION; // Everyone can loot in AV.
+    SetFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
+    ForceValuesUpdateAtIndex(CORPSE_DYNFLAG_LOOTABLE);
+
+    return true;
 }

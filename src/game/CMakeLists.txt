@@ -183,7 +183,8 @@ set (game_SRCS
 	Objects/Creature.cpp
 	Objects/DynamicObject.cpp
 	Objects/GameObject.cpp
-	Objects/Item.cpp
+        Objects/Item.cpp
+        Objects/Lootable.cpp
 	Objects/Object.cpp
 	Objects/Pet.cpp
 	Objects/Player.cpp
@@ -367,6 +368,7 @@ set (game_SRCS
 	Objects/GameObject.h
 	Objects/Item.h
 	Objects/ItemPrototype.h
+        Objects/Lootable.h
 	Objects/Object.h
 	Objects/Pet.h
 	Objects/Player.h

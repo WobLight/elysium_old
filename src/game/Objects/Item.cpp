@@ -215,7 +215,7 @@ bool ItemCanGoIntoBag(ItemPrototype const* pProto, ItemPrototype const* pBagProt
     return false;
 }
 
-Item::Item() : loot(NULL)
+Item::Item() : Lootable(nullptr)
 {
     m_objectType |= TYPEMASK_ITEM;
     m_objectTypeId = TYPEID_ITEM;
@@ -1154,5 +1154,29 @@ bool Item::ChangeEntry(ItemPrototype const* pNewProto)
     SetState(ITEM_CHANGED);
     if (Player* pOwner = GetOwner())
         AddToUpdateQueueOf(pOwner);
+    return true;
+}
+
+bool Item::prepareLoot(Player *reciever, LootType loot_type, Player *pVictim, PermissionTypes &permission)
+{
+    permission = OWNER_PERMISSION;
+
+    if (!HasGeneratedLoot())
+    {
+        loot.clear();
+
+        switch (loot_type)
+        {
+            case LOOT_DISENCHANTING:
+                loot.FillLoot(GetProto()->DisenchantID, LootTemplates_Disenchant, reciever, true);
+                SetLootState(ITEM_LOOT_TEMPORARY);
+                break;
+            default:
+                loot.FillLoot(GetEntry(), LootTemplates_Item, reciever, true, GetProto()->MaxMoneyLoot == 0);
+                loot.generateMoneyLoot(GetProto()->MinMoneyLoot, GetProto()->MaxMoneyLoot);
+                SetLootState(ITEM_LOOT_CHANGED);
+                break;
+        }
+    }
     return true;
 }

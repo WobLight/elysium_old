@@ -46,10 +46,11 @@
 #include "ZoneScript.h"
 #include "DynamicTree.h"
 #include "vmap/GameObjectModel.h"
+#include "Anticheat.h"
 
 GameObject::GameObject() : WorldObject(),
-    loot(this),
-    m_goInfo(NULL),
+    Lootable(this),
+    m_goInfo(nullptr),
     m_visible(true)
 {
     m_objectType |= TYPEMASK_GAMEOBJECT;
@@ -1425,7 +1426,7 @@ void GameObject::Use(Unit* user)
                             SetLootState(GO_JUST_DEACTIVATED);
                         }
                         else
-                            player->SendLoot(GetObjectGuid(), success ? LOOT_FISHING : LOOT_FISHING_FAIL);
+                            player->SendLoot(this, success ? LOOT_FISHING : LOOT_FISHING_FAIL);
                     }
                     else
                     {
@@ -1633,7 +1634,7 @@ void GameObject::Use(Unit* user)
 
             Player* player = (Player*)user;
 
-            player->SendLoot(GetObjectGuid(), LOOT_FISHINGHOLE);
+            player->SendLoot(this, LOOT_FISHINGHOLE);
             return;
         }
         case GAMEOBJECT_TYPE_FLAGDROP:                      // 26
@@ -2118,4 +2119,57 @@ void GameObject::Despawn()
         SetRespawnTime(data->spawntimesecs);
     else
         AddObjectToRemoveList();
+}
+
+bool GameObject::prepareLoot(Player *reciever, LootType loot_type, Player */*pVictim*/, PermissionTypes &permission)
+{
+    if ((loot_type != LOOT_FISHINGHOLE && (loot_type != LOOT_FISHING && loot_type != LOOT_FISHING_FAIL || GetOwnerGuid() != reciever->GetObjectGuid()) && !IsWithinDistInMap(reciever, INTERACTION_DISTANCE)))
+        return false;
+    // Allowed to loot chest ?
+    if (GameObjectInfo const* goInfo = GetGOInfo())
+        if (goInfo->type == GAMEOBJECT_TYPE_CHEST && goInfo->chest.level > (reciever->getLevel() + 10))
+        {
+            std::stringstream oss;
+            oss << "Level " << reciever->getLevel() << " attempt to loot chest " << GetDBTableGUIDLow() << " (level " << goInfo->chest.level << ")";
+            reciever->GetSession()->ProcessAnticheatAction("ChestCheck", oss.str().c_str(), CHEAT_ACTION_LOG);
+            return false;
+        }
+
+    // generate loot only if ready for open and spawned in world
+    if (getLootState() == GO_READY && isSpawned())
+    {
+        uint32 lootid =  GetGOInfo()->GetLootId();
+        // Entry 0 in fishing loot template used for store junk fish loot at fishing fail it junk allowed by config option
+        // this is overwrite fishinghole loot for example
+        if (loot_type == LOOT_FISHING_FAIL)
+            loot.FillLoot(0, LootTemplates_Fishing, reciever, true);
+        else if (lootid)
+        {
+            loot.clear();
+
+            Group* group = reciever->GetGroup();
+            bool groupRules = (group && GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST && GetGOInfo()->chest.groupLootRules);
+
+            // check current RR player and get next if necessary
+            if (groupRules)
+            {
+                group->UpdateLooterGuid(this, true);
+                loot.SetTeam(group->GetTeam());
+            }
+
+            loot.FillLoot(lootid, LootTemplates_Gameobject, reciever, !groupRules, false);
+            if (GetInstanceId())
+                GetMap()->BindToInstanceOrRaid(reciever, GetRespawnTimeEx(), false);
+
+            // get next RR player (for next loot)
+            if (groupRules)
+                group->UpdateLooterGuid(this);
+        }
+        else if (loot_type == LOOT_FISHING)
+            getFishLoot(&loot, reciever);
+        SetLootState(GO_ACTIVATED);
+    }
+    else if (getLootState() == GO_ACTIVATED)
+        loot.FillNotNormalLootFor(reciever);
+    return true;
 }

@@ -43,6 +43,7 @@
 #include "SharedDefines.h"
 #include "SpellMgr.h"
 #include "HonorMgr.h"
+#include "Lootable.h"
 
 #include <string>
 #include <vector>
@@ -1756,7 +1757,8 @@ class MANGOS_DLL_SPEC Player final: public Unit
         PlayerMenu* PlayerTalkClass;
         std::vector<ItemSetEffect *> ItemSetEff;
 
-        void SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim = NULL);
+        void SendLoot(Lootable *obj, LootType loot_type, Player *pVictim = nullptr);
+        void SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim = nullptr);
         void SendLootRelease(ObjectGuid guid );
         void SendNotifyLootItemRemoved(uint8 lootSlot);
         void SendNotifyLootMoneyRemoved();

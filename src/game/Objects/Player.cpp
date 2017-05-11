@@ -7135,7 +7135,7 @@ void Player::RemovedInsignia(Player* looterPlr)
     // We retrieve this information at Player::SendLoot()
     //bones->loot.gold = getLevel();
     bones->lootRecipient = looterPlr;
-    looterPlr->SendLoot(bones->GetObjectGuid(), LOOT_INSIGNIA, this);
+    looterPlr->SendLoot(bones, LOOT_INSIGNIA, this);
 }
 
 void Player::SendLootRelease(ObjectGuid guid)
@@ -7146,8 +7146,10 @@ void Player::SendLootRelease(ObjectGuid guid)
     SendDirectMessage(&data);
 }
 
-void Player::SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim)
+void Player::SendLoot(Lootable *obj, LootType loot_type, Player* pVictim)
 {
+
+    ObjectGuid guid = dynamic_cast<Object *>(obj)->GetObjectGuid();
     // Nostalrius : desactivation des loots / map
     if (Map* myMap = FindMap())
     {
@@ -7163,7 +7165,6 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim)
     if (ObjectGuid lootGuid = GetLootGuid())
         m_session->DoLootRelease(lootGuid);
 
-    Loot    *loot = 0;
     PermissionTypes permission = ALL_PERMISSION;
 
     DEBUG_LOG("Player::SendLoot");
@@ -7171,379 +7172,19 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim)
     if (loot_type != LOOT_PICKPOCKETING)
         RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH); // TODO: Utiliser AuraInterruptFlags ?
 
-    switch (guid.GetHigh())
+    if (!obj->prepareLoot(this, loot_type, pVictim, permission))
     {
-        case HIGHGUID_GAMEOBJECT:
-        {
-            DEBUG_LOG("       IS_GAMEOBJECT_GUID(guid)");
-            GameObject *go = GetMap()->GetGameObject(guid);
-
-            // not check distance for GO in case owned GO (fishing bobber case, for example)
-            // And permit out of range GO with no owner in case fishing hole
-            if (!go || (loot_type != LOOT_FISHINGHOLE && (loot_type != LOOT_FISHING && loot_type != LOOT_FISHING_FAIL || go->GetOwnerGuid() != GetObjectGuid()) && !go->IsWithinDistInMap(this, INTERACTION_DISTANCE)))
-            {
-                SendLootRelease(guid);
-                return;
-            }
-            // Allowed to loot chest ?
-            if (GameObjectInfo const* goInfo = go->GetGOInfo())
-                if (goInfo->type == GAMEOBJECT_TYPE_CHEST && goInfo->chest.level > (getLevel() + 10))
-                {
-                    std::stringstream oss;
-                    oss << "Level " << getLevel() << " attempt to loot chest " << go->GetDBTableGUIDLow() << " (level " << goInfo->chest.level << ")";
-                    GetSession()->ProcessAnticheatAction("ChestCheck", oss.str().c_str(), CHEAT_ACTION_LOG);
-                    SendLootRelease(guid);
-                    return;
-                }
-
-            loot = &go->loot;
-
-            // generate loot only if ready for open and spawned in world
-            if (go->getLootState() == GO_READY && go->isSpawned())
-            {
-                uint32 lootid =  go->GetGOInfo()->GetLootId();
-                // Entry 0 in fishing loot template used for store junk fish loot at fishing fail it junk allowed by config option
-                // this is overwrite fishinghole loot for example
-                if (loot_type == LOOT_FISHING_FAIL)
-                    loot->FillLoot(0, LootTemplates_Fishing, this, true);
-                else if (lootid)
-                {
-                    loot->clear();
-
-                    Group* group = GetGroup();
-                    bool groupRules = (group && go->GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST && go->GetGOInfo()->chest.groupLootRules);
-
-                    // check current RR player and get next if necessary
-                    if (groupRules)
-                    {
-                        group->UpdateLooterGuid(go, true);
-                        loot->SetTeam(group->GetTeam());
-                    }
-
-                    loot->FillLoot(lootid, LootTemplates_Gameobject, this, !groupRules, false);
-                    if (go->GetInstanceId())
-                        go->GetMap()->BindToInstanceOrRaid(this, go->GetRespawnTimeEx(), false);
-
-                    // get next RR player (for next loot)
-                    if (groupRules)
-                        group->UpdateLooterGuid(go);
-                }
-                else if (loot_type == LOOT_FISHING)
-                    go->getFishLoot(loot, this);
-                go->SetLootState(GO_ACTIVATED);
-            }
-            else if (go->getLootState() == GO_ACTIVATED)
-                loot->FillNotNormalLootFor(this);
-            break;
-        }
-        case HIGHGUID_ITEM:
-        {
-            Item *item = GetItemByGuid(guid);
-
-            if (!item)
-            {
-                SendLootRelease(guid);
-                return;
-            }
-
-            permission = OWNER_PERMISSION;
-
-            loot = &item->loot;
-
-            if (!item->HasGeneratedLoot())
-            {
-                item->loot.clear();
-
-                switch (loot_type)
-                {
-                    case LOOT_DISENCHANTING:
-                        loot->FillLoot(item->GetProto()->DisenchantID, LootTemplates_Disenchant, this, true);
-                        item->SetLootState(ITEM_LOOT_TEMPORARY);
-                        break;
-                    default:
-                        loot->FillLoot(item->GetEntry(), LootTemplates_Item, this, true, item->GetProto()->MaxMoneyLoot == 0);
-                        loot->generateMoneyLoot(item->GetProto()->MinMoneyLoot, item->GetProto()->MaxMoneyLoot);
-                        item->SetLootState(ITEM_LOOT_CHANGED);
-                        break;
-                }
-            }
-            break;
-        }
-        case HIGHGUID_CORPSE:                               // remove insignia
-        {
-            Corpse *bones = GetMap()->GetCorpse(guid);
-
-            if (!bones || !((loot_type == LOOT_CORPSE) || (loot_type == LOOT_INSIGNIA)))
-            {
-                SendLootRelease(guid);
-                return;
-            }
-            loot = &bones->loot;
-
-            if (!bones->lootForBody)
-            {
-                bones->lootForBody = true;
-                // uint32 pLevel = bones->loot.gold;
-                bones->loot.clear();
-                // It may need a better formula
-                // Now it works like this: lvl10: ~6copper, lvl70: ~9silver
-                if (pVictim != NULL)
-                {
-                    uint32 level = pVictim->getLevel();
-                    bones->loot.gold = (uint32)(urand(50, 150) * 0.016f * pow(((float)level) / 5.76f, 2.5f) * sWorld.getConfig(CONFIG_FLOAT_RATE_DROP_MONEY));
-                    bones->loot._personal = true; // Everyone can loot the corpse
-                    if (BattleGround* bg = GetBattleGround())
-                    {
-                        if (bg->GetTypeID() == BATTLEGROUND_AV)
-                        {
-                            uint8 race = pVictim->getRace();
-                            uint32 rank = pVictim->GetHonorMgr().GetHighestRank().visualRank;
-                            uint32 raceItem = 0;
-                            uint32 rankItem = 0;
-                            uint32 questItem = 0;
-                            switch (race)
-                            {
-                            case RACE_HUMAN:
-                                raceItem = 18144;
-                                questItem = 17306;
-                                break;
-                            case RACE_DWARF:
-                                raceItem = 18206;
-                                questItem = 17306;
-                                break;
-                            case RACE_NIGHTELF:
-                                raceItem = 18142;
-                                questItem = 17306;
-                                break;
-                            case RACE_GNOME:
-                                raceItem = 18143;
-                                questItem = 17306;
-                                break;
-                            case RACE_ORC:
-                                raceItem = 18207;
-                                questItem = 17423;
-                                break;
-                            case RACE_UNDEAD:
-                                raceItem = 18147;
-                                questItem = 17423;
-                                break;
-                            case RACE_TAUREN:
-                                raceItem = 18145;
-                                questItem = 17423;
-                                break;
-                            case RACE_TROLL:
-                                raceItem = 18146;
-                                questItem = 17423;
-                                break;
-                            }
-                            if (rank < 6)
-                                if (pVictim->GetTeam() == ALLIANCE)
-                                    rankItem = 17326;
-                                else
-                                    rankItem = 17502;
-                            else if (rank < 10)
-                                if (pVictim->GetTeam() == ALLIANCE)
-                                    rankItem = 17327;
-                                else
-                                    rankItem = 17503;
-                            else if (pVictim->GetTeam() == ALLIANCE)
-                                rankItem = 17328;
-                            else
-                                rankItem = 17504;
-
-                            if (raceItem > 0)
-                            {
-                                LootStoreItem storeitem = LootStoreItem(raceItem, 100, 0, 0, 1, 1);
-                                bones->loot.AddItem(storeitem);
-                            }
-                            if (questItem > 0)
-                            {
-                                LootStoreItem storeitem = LootStoreItem(questItem, 100, 0, 0, 1, 1);
-                                bones->loot.AddItem(storeitem);
-                            }
-                            if (rankItem > 0)
-                            {
-                                LootStoreItem storeitem = LootStoreItem(rankItem, 75, 0, 0, 0, 1);
-                                bones->loot.AddItem(storeitem);
-                            }
-
-                            LootStoreItem storeitem = LootStoreItem(17422, 75, 0, 0, 0, 20);
-                            bones->loot.AddItem(storeitem);
-                        }
-                    }
-                }
-            }
-
-            permission = ALL_PERMISSION; // Everyone can loot in AV.
-            bones->SetFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
-            bones->ForceValuesUpdateAtIndex(CORPSE_DYNFLAG_LOOTABLE);
-            break;
-        }
-        case HIGHGUID_UNIT:
-        {
-            Creature *creature = GetMap()->GetCreature(guid);
-
-            // must be in range and creature must be alive for pickpocket and must be dead for another loot
-            if (!creature || creature->isAlive() != (loot_type == LOOT_PICKPOCKETING) || !creature->IsWithinDistInMap(this, INTERACTION_DISTANCE))
-            {
-                SendLootRelease(guid);
-                return;
-            }
-
-            if (loot_type == LOOT_PICKPOCKETING && IsFriendlyTo(creature))
-            {
-                SendLootRelease(guid);
-                return;
-            }
-
-            if (creature->AI() && !creature->AI()->CanBeLooted())
-            {
-                SendLootRelease(guid);
-                return;
-            }
-
-            loot = &creature->loot;
-
-            if (loot_type == LOOT_PICKPOCKETING)
-            {
-
-                uint32 lootid = creature->GetCreatureInfo()->pickpocketLootId;
-
-                if (!creature->lootForPickPocketed)
-                {
-                    loot->clear();
-                    // Fill loot for first time
-                    if (lootid)
-                        loot->FillLoot(lootid, LootTemplates_Pickpocketing, this, false);
-
-                    // Generate extra money for pick pocket loot
-                    const uint32 a = urand(0, creature->getLevel() / 2);
-                    const uint32 b = urand(0, getLevel() / 2);
-                    loot->gold += uint32(10 * (a + b) * sWorld.getConfig(CONFIG_FLOAT_RATE_DROP_MONEY));
-
-                    creature->lootForPickPocketed = true;
-                }
-                else if (loot->empty() || !loot->IsOriginalLooter(GetObjectGuid()))
-                {
-                    // If not original pickpocketer or empty
-                    // Clear loot and generate only q items
-                    loot->clear();
-
-                    if (lootid)
-                        loot->FillLoot(lootid, LootTemplates_Pickpocketing, this, false);
-
-                    loot->leaveOnlyQuestItems();
-                }
-
-                permission = OWNER_PERMISSION;
-
-                if (creature->GetInstanceId())
-                    creature->GetMap()->BindToInstanceOrRaid(this, creature->GetRespawnTimeEx(), false);
-            }
-            else
-            {
-                // the player whose group may loot the corpse
-                Player *recipient = creature->GetLootRecipient();
-                if (!recipient)
-                    return;
-
-                if (creature->lootForPickPocketed)
-                {
-                    creature->lootForPickPocketed = false;
-                    loot->clear();
-                }
-
-                if (!creature->lootForBody)
-                {
-                    creature->lootForBody = true;
-
-                    if (Group* group = creature->GetGroupLootRecipient())
-                    {
-                        //group->UpdateLooterGuid(creature,true);
-
-                        switch (group->GetLootMethod())
-                        {
-                            case GROUP_LOOT:
-                                // GroupLoot delete items over threshold (threshold even not implemented), and roll them. Items with quality<threshold, round robin
-                                group->GroupLoot(creature, loot);
-                                break;
-                            case NEED_BEFORE_GREED:
-                                group->NeedBeforeGreed(creature, loot);
-                                break;
-                            case MASTER_LOOT:
-                                group->MasterLoot(creature, loot);
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-
-                // possible only if creature->lootForBody && loot->empty() at spell cast check
-                if (loot_type == LOOT_SKINNING)
-                {
-                    if (!creature->lootForSkin)
-                    {
-                        creature->lootForSkin = true;
-                        loot->clear();
-                        loot->FillLoot(creature->GetCreatureInfo()->SkinLootId, LootTemplates_Skinning, this, false);
-
-                        // let reopen skinning loot if will closed.
-                        if (!loot->empty())
-                            creature->SetUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-
-                        permission = OWNER_PERMISSION;
-                    }
-                    if (creature->GetInstanceId())
-                        creature->GetMap()->BindToInstanceOrRaid(this, creature->GetRespawnTimeEx(), false);
-                }
-                // set group rights only for loot_type != LOOT_SKINNING
-                else
-                {
-                    if (Group* group = GetGroup())
-                    {
-                        if (group == recipient->GetGroup())
-                        {
-                            switch (group->GetLootMethod())
-                            {
-                                case MASTER_LOOT:
-                                    permission = MASTER_PERMISSION;
-                                    break;
-                                case FREE_FOR_ALL:
-                                    permission = ALL_PERMISSION;
-                                    break;
-                                case ROUND_ROBIN:
-                                    permission = ROUND_ROBIN_PERMISSION;
-                                    break;
-                                default:
-                                    permission = GROUP_PERMISSION;
-                                    break;
-                            }
-                        }
-                        else
-                            permission = NONE_PERMISSION;
-                    }
-                    else if (recipient == this)
-                        permission = OWNER_PERMISSION;
-                    else
-                        permission = NONE_PERMISSION;
-                }
-            }
-            break;
-        }
-        default:
-        {
-            sLog.outError("%s is unsupported for looting.", guid.GetString().c_str());
-            return;
-        }
+        pVictim->SendLootRelease(guid);
+        return;
     }
 
     SetLootGuid(guid);
     ALL_SESSION_SCRIPTS(GetSession(), OnLoot(guid, loot_type));
 
+    Loot &loot = obj->loot;
     // need know for proper finish item loots (internal pre-switch loot type set in different from 3.x code version)
     // in fact this meaning that it send same loot types for interesting cases like 3.x version code (skip pre-3.x client loot type limitaitons)
-    loot->loot_type = loot_type;
+    loot.loot_type = loot_type;
 
     // LOOT_SKINNING, LOOT_PROSPECTING, LOOT_INSIGNIA and LOOT_FISHINGHOLE unsupported by client
     switch (loot_type)
@@ -7567,15 +7208,42 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim)
     WorldPacket data(SMSG_LOOT_RESPONSE, (9 + 50));         // we guess size
     data << ObjectGuid(guid);
     data << uint8(loot_type);
-    data << LootView(*loot, this, permission);
+    data << LootView(loot, this, permission);
     SendDirectMessage(&data);
 
     // add 'this' player as one of the players that are looting 'loot'
     if (permission != NONE_PERMISSION)
-        loot->AddLooter(GetObjectGuid());
+        loot.AddLooter(GetObjectGuid());
 
     if (loot_type == LOOT_CORPSE && !guid.IsItem())
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOOTING);
+}
+
+void Player::SendLoot(ObjectGuid guid, LootType loot_type, Player* pVictim)
+{
+    Lootable *target = nullptr;
+    switch(guid.GetHigh())
+    {
+    case HIGHGUID_GAMEOBJECT:
+        target = GetMap()->GetGameObject(guid);
+        break;
+    case HIGHGUID_ITEM:
+        target = GetItemByGuid(guid);
+        break;
+    case HIGHGUID_CORPSE:
+        target = GetMap()->GetCorpse(guid);
+        break;
+    case HIGHGUID_UNIT:
+        target = GetMap()->GetCreature(guid);
+        break;
+    }
+
+    if (!target)
+    {
+        SendLootRelease(guid);
+        return;
+    }
+    SendLoot(target, loot_type,pVictim);
 }
 
 void Player::SendNotifyLootMoneyRemoved()

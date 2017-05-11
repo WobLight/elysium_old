@@ -32,6 +32,7 @@
 #include "Database/DatabaseEnv.h"
 #include "CreatureGroups.h"
 #include "Cell.h"
+#include "Lootable.h"
 
 #include <list>
 
@@ -450,7 +451,7 @@ class ThreatListProcesser
         virtual bool Process(Unit* unit) = 0;
 };
 
-class MANGOS_DLL_SPEC Creature : public Unit
+class MANGOS_DLL_SPEC Creature : public Unit, public Lootable
 {
     CreatureAI *i_AI;
 
@@ -617,7 +618,6 @@ class MANGOS_DLL_SPEC Creature : public Unit
         virtual void DeleteFromDB();                        // overwrited in Pet
         static void DeleteFromDB(uint32 lowguid, CreatureData const* data);
 
-        Loot loot;
         bool lootForPickPocketed;
         bool lootForBody;
         bool lootForSkin;
@@ -881,7 +881,13 @@ class MANGOS_DLL_SPEC Creature : public Unit
     private:
         GridReference<Creature> m_gridRef;
         CreatureInfo const* m_creatureInfo;
+
+        // Lootable interface
+public:
+        bool prepareLoot(Player *reciever, LootType loot_type, Player *pVictim, PermissionTypes &permission) override;
 };
+
+
 
 class AssistDelayEvent : public BasicEvent
 {

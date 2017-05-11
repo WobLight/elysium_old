@@ -3010,7 +3010,7 @@ void Spell::EffectPickPocket(SpellEffectIndex /*eff_idx*/)
 
     // victim have to be alive and humanoid or undead
     if (unitTarget->isAlive() && (unitTarget->GetCreatureTypeMask() & CREATURE_TYPEMASK_HUMANOID_OR_UNDEAD) != 0)
-        ((Player*)m_caster)->SendLoot(unitTarget->GetObjectGuid(), LOOT_PICKPOCKETING);
+        ((Player*)m_caster)->SendLoot((Creature *)unitTarget, LOOT_PICKPOCKETING);
 }
 
 void Spell::EffectAddFarsight(SpellEffectIndex eff_idx)
@@ -4944,7 +4944,7 @@ void Spell::EffectDisEnchant(SpellEffectIndex /*eff_idx*/)
     Player* pCaster = static_cast<Player*>(m_caster);
 
     pCaster->UpdateCraftSkill(m_spellInfo->Id);
-    pCaster->SendLoot(itemTarget->GetObjectGuid(), LOOT_DISENCHANTING);
+    pCaster->SendLoot(itemTarget, LOOT_DISENCHANTING);
 
     // quick solution to prevent exploiting; this will cause items loss on full bags though
     // in order to fix this correctly have to fix first plMover->SendLootRelease(lootGuid); @ MovementHandler
@@ -5268,7 +5268,7 @@ void Spell::EffectSkinning(SpellEffectIndex /*eff_idx*/)
 
     uint32 skill = creature->GetCreatureInfo()->GetRequiredLootSkill();
 
-    ((Player*)m_caster)->SendLoot(creature->GetObjectGuid(), LOOT_SKINNING);
+    ((Player*)m_caster)->SendLoot(creature, LOOT_SKINNING);
     creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
 
     int32 reqValue = targetLevel < 10 ? 0 : targetLevel < 20 ? (targetLevel - 10) * 10 : targetLevel * 5;
@@ -5745,7 +5745,7 @@ void Spell::EffectSkinPlayerCorpse(SpellEffectIndex eff_idx)
         corpseTarget->SetFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
         corpseTarget->loot.gold = m_caster->getLevel();
         corpseTarget->lootRecipient = m_caster->ToPlayer();
-        m_caster->ToPlayer()->SendLoot(corpseTarget->GetObjectGuid(), LOOT_INSIGNIA);
+        m_caster->ToPlayer()->SendLoot(corpseTarget, LOOT_INSIGNIA);
     }
 }
 void Spell::EffectBind(SpellEffectIndex eff_idx)

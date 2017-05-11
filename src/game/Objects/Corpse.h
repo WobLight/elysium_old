@@ -27,6 +27,7 @@
 #include "Database/DatabaseEnv.h"
 #include "GridDefines.h"
 #include "LootMgr.h"
+#include "Lootable.h"
 
 enum CorpseType
 {
@@ -50,7 +51,7 @@ enum CorpseFlags
     CORPSE_FLAG_LOOTABLE    = 0x20
 };
 
-class Corpse : public WorldObject
+class Corpse : public WorldObject, public Lootable
 {
     public:
         explicit Corpse( CorpseType type = CORPSE_BONES );
@@ -83,7 +84,6 @@ class Corpse : public WorldObject
 
         bool isVisibleForInState(Player const* u, WorldObject const* viewPoint, bool inVisibleList) const;
 
-        Loot loot;                                          // remove insignia ONLY at BG
         Player* lootRecipient;
         bool lootForBody;
 
@@ -99,5 +99,11 @@ class Corpse : public WorldObject
         CorpseType m_type;
         time_t m_time;
         GridPair m_grid;                                    // gride for corpse position for fast search
+
+        // Object interface
+public:
+        bool prepareLoot(Player *reciever, LootType loot_type, Player *pVictim, PermissionTypes &permission) override;
 };
+
+
 #endif

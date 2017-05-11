@@ -163,7 +163,7 @@ bool CreatureCreatePos::Relocate(Creature* cr) const
 
 Creature::Creature(CreatureSubtype subtype) :
     Unit(), i_AI(nullptr),
-    loot(this), lootForPickPocketed(false), lootForBody(false), lootForSkin(false), skinningForOthersTimer(5000), m_TargetNotReachableTimer(0),
+    Lootable(this), lootForPickPocketed(false), lootForBody(false), lootForSkin(false), skinningForOthersTimer(5000), m_TargetNotReachableTimer(0),
     _pacifiedTimer(0), _manaRegen(true),
     m_groupLootTimer(0), m_groupLootId(0), m_lootMoney(0), m_lootGroupRecipientId(0), m_corpseDecayTimer(0),
     m_respawnTime(0), m_respawnDelay(25), m_corpseDelay(60),
@@ -3433,4 +3433,140 @@ void Creature::JoinCreatureGroup(Creature* leader, float dist, float angle, uint
     SetCreatureGroup(group);
     if (group->IsFormation())
         GetMotionMaster()->Initialize();
+}
+
+bool Creature::prepareLoot(Player *reciever, LootType loot_type, Player */*pVictim*/, PermissionTypes &permission)
+{
+    // must be in range and creature must be alive for pickpocket and must be dead for another loot
+    if (isAlive() != (loot_type == LOOT_PICKPOCKETING) || !IsWithinDistInMap(this, INTERACTION_DISTANCE)
+            || loot_type == LOOT_PICKPOCKETING && reciever->IsFriendlyTo(this)
+            || AI() && !AI()->CanBeLooted())
+        return false;
+
+    if (loot_type == LOOT_PICKPOCKETING)
+    {
+
+        uint32 lootid = GetCreatureInfo()->pickpocketLootId;
+
+        if (!lootForPickPocketed)
+        {
+            loot.clear();
+            // Fill loot for first time
+            if (lootid)
+                loot.FillLoot(lootid, LootTemplates_Pickpocketing, reciever, false);
+
+            // Generate extra money for pick pocket loot
+            const uint32 a = urand(0, getLevel() / 2);
+            const uint32 b = urand(0, reciever->getLevel() / 2);
+            loot.gold += uint32(10 * (a + b) * sWorld.getConfig(CONFIG_FLOAT_RATE_DROP_MONEY));
+
+            lootForPickPocketed = true;
+        }
+        else if (loot.empty() || !loot.IsOriginalLooter(reciever->GetObjectGuid()))
+        {
+            // If not original pickpocketer or empty
+            // Clear loot and generate only q items
+            loot.clear();
+
+            if (lootid)
+                loot.FillLoot(lootid, LootTemplates_Pickpocketing, reciever, false);
+
+            loot.leaveOnlyQuestItems();
+        }
+
+        permission = OWNER_PERMISSION;
+
+        if (GetInstanceId())
+            GetMap()->BindToInstanceOrRaid(reciever, GetRespawnTimeEx(), false);
+    }
+    else
+    {
+        // the player whose group may loot the corpse
+        Player *recipient = GetLootRecipient();
+        if (!recipient)
+            return false;
+
+        if (lootForPickPocketed)
+        {
+            lootForPickPocketed = false;
+            loot.clear();
+        }
+
+        if (!lootForBody)
+        {
+            lootForBody = true;
+
+            if (Group* group = GetGroupLootRecipient())
+            {
+                //group->UpdateLooterGuid(creature,true);
+
+                switch (group->GetLootMethod())
+                {
+                    case GROUP_LOOT:
+                        // GroupLoot delete items over threshold (threshold even not implemented), and roll them. Items with quality<threshold, round robin
+                        group->GroupLoot(this, &loot);
+                        break;
+                    case NEED_BEFORE_GREED:
+                        group->NeedBeforeGreed(this, &loot);
+                        break;
+                    case MASTER_LOOT:
+                        group->MasterLoot(this, &loot);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        // possible only if lootForBody && loot.empty() at spell cast check
+        if (loot_type == LOOT_SKINNING)
+        {
+            if (!lootForSkin)
+            {
+                lootForSkin = true;
+                loot.clear();
+                loot.FillLoot(GetCreatureInfo()->SkinLootId, LootTemplates_Skinning, reciever, false);
+
+                // let reopen skinning loot if will closed.
+                if (!loot.empty())
+                    SetUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+
+                permission = OWNER_PERMISSION;
+            }
+            if (GetInstanceId())
+                GetMap()->BindToInstanceOrRaid(reciever, GetRespawnTimeEx(), false);
+        }
+        // set group rights only for loot_type != LOOT_SKINNING
+        else
+        {
+            if (Group* group = reciever->GetGroup())
+            {
+                if (group == recipient->GetGroup())
+                {
+                    switch (group->GetLootMethod())
+                    {
+                        case MASTER_LOOT:
+                            permission = MASTER_PERMISSION;
+                            break;
+                        case FREE_FOR_ALL:
+                            permission = ALL_PERMISSION;
+                            break;
+                        case ROUND_ROBIN:
+                            permission = ROUND_ROBIN_PERMISSION;
+                            break;
+                        default:
+                            permission = GROUP_PERMISSION;
+                            break;
+                    }
+                }
+                else
+                    permission = NONE_PERMISSION;
+            }
+            else if (recipient == reciever)
+                permission = OWNER_PERMISSION;
+            else
+                permission = NONE_PERMISSION;
+        }
+    }
+    return true;
 }

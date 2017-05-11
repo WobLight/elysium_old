@@ -240,7 +240,7 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
         stmt.PExecute(pItem->GetGUIDLow());
     }
     else
-        pUser->SendLoot(pItem->GetObjectGuid(), LOOT_CORPSE);
+        pUser->SendLoot(pItem, LOOT_CORPSE);
 }
 
 void WorldSession::HandleGameObjectUseOpcode(WorldPacket & recv_data)
