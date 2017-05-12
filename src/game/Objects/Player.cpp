@@ -1302,11 +1302,10 @@ void Player::Update(uint32 update_diff, uint32 p_time)
     }
 
     // not auto-free ghost from body in instances
-    if (m_deathTimer > 0  && !GetMap()->Instanceable())
+    if (getDeathState() == CORPSE  && !GetMap()->Instanceable())
     {
         if (p_time >= m_deathTimer)
         {
-            m_deathTimer = 0;
             BuildPlayerRepop();
             RepopAtGraveyard();
         }
@@ -4670,6 +4669,7 @@ void Player::RepopAtGraveyard()
 
     // stop countdown until repop
     m_deathTimer = 0;
+    SetDeathState(DEAD);
     UpdateObjectVisibility();
     // if no grave found, stay at the current location
     // and don't show spirit healer location
@@ -7109,9 +7109,8 @@ void Player::RemovedInsignia(Player* looterPlr)
         return;
 
     // If not released spirit, do it !
-    if (m_deathTimer > 0)
+    if (getDeathState() != DEAD)
     {
-        m_deathTimer = 0;
         BuildPlayerRepop();
         RepopAtGraveyard();
     }
@@ -17118,11 +17117,11 @@ bool Player::IsVisibleInGridForPlayer(Player* pl) const
         return true;
 
     // Live player see live player or dead player with not realized corpse
-    if (pl->isAlive() || pl->m_deathTimer > 0)
-        return isAlive() || m_deathTimer > 0;
+    if (pl->getDeathState() != DEAD)
+        return getDeathState() != DEAD;
 
     // Ghost see other friendly ghosts, that's for sure
-    if (!(isAlive() || m_deathTimer > 0) && IsFriendlyTo(pl))
+    if (getDeathState() == DEAD && IsFriendlyTo(pl))
         return true;
 
     // Dead player see live players near own corpse
