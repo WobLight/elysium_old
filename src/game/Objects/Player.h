@@ -1557,7 +1557,7 @@ class MANGOS_DLL_SPEC Player final: public Unit
         ObjectGuid const& GetLootGuid() const { return m_lootGuid; }
         void SetLootGuid(ObjectGuid const& guid) { m_lootGuid = guid; }
 
-        void RemovedInsignia(Player* looterPlr);
+        void RemovedInsignia(Player* looterPlr, Corpse *corpse);
 
         WorldSession* GetSession() const { return m_session; }
         void SetSession(WorldSession *s);

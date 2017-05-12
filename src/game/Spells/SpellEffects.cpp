@@ -5728,25 +5728,23 @@ void Spell::EffectSkinPlayerCorpse(SpellEffectIndex eff_idx)
     DEBUG_LOG("Effect: SkinPlayerCorpse");
     if (m_caster->GetTypeId() != TYPEID_PLAYER)
         return;
-    // Soit on a 'corpseTarget', soit on a 'unitTarget'
-    if (unitTarget)
-    {
-        if (unitTarget->GetTypeId() != TYPEID_PLAYER || unitTarget->isAlive())
-            return;
 
-        ((Player*)unitTarget)->RemovedInsignia((Player*)m_caster);
-
-        AddExecuteLogInfo(eff_idx, ExecuteLogInfo(unitTarget->GetObjectGuid()));
-    }
-    else if (corpseTarget)
+    Unit *target = unitTarget;
+    if (!target && corpseTarget)
+        target = ObjectAccessor::FindPlayer(corpseTarget->GetOwnerGuid());
+    if (!target)
     {
-        if (corpseTarget->lootForBody)
-            return;
-        corpseTarget->SetFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
-        corpseTarget->loot.gold = m_caster->getLevel();
-        corpseTarget->lootRecipient = m_caster->ToPlayer();
-        m_caster->ToPlayer()->SendLoot(corpseTarget->GetObjectGuid(), LOOT_INSIGNIA);
+        Corpse *bones = sObjectAccessor.ConvertCorpseForPlayer(corpseTarget->GetObjectGuid(), true);
+        m_caster->ToPlayer()->SendLoot(bones->GetObjectGuid(), LOOT_INSIGNIA);
+        return;
     }
+
+    if (target->GetTypeId() != TYPEID_PLAYER || target->isAlive())
+        return;
+
+    ((Player*)target)->RemovedInsignia((Player*)m_caster, corpseTarget);
+
+    AddExecuteLogInfo(eff_idx, ExecuteLogInfo(target->GetObjectGuid()));
 }
 void Spell::EffectBind(SpellEffectIndex eff_idx)
 {
