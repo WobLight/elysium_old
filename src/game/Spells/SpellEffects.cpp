@@ -5734,6 +5734,7 @@ void Spell::EffectSkinPlayerCorpse(SpellEffectIndex eff_idx)
         target = ObjectAccessor::FindPlayer(corpseTarget->GetOwnerGuid());
     if (!target)
     {
+        ASSERT(corpseTarget);
         Corpse *bones = sObjectAccessor.ConvertCorpseForPlayer(corpseTarget->GetOwnerGuid(), true);
         m_caster->ToPlayer()->SendLoot((bones?bones:corpseTarget)->GetObjectGuid(), LOOT_INSIGNIA);
         DEBUG_LOG("Effect SkinPlayerCorpse: corpse owner was not found");
