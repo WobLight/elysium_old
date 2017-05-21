@@ -2069,19 +2069,24 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
 
     std::pair<unsigned int, float> info = getShapeshiftModelInfo(form, target);
     unsigned int modelid = info.first;
-    float mod_x = info.second;
-
     if (modelid > 0 && !target->getTransForm())
     {
         if (apply)
+        {
+            target->setTransformScale(info.second);
             target->SetDisplayId(modelid);
+        }
         else
+        {
+            target->resetTransformScale();
             target->SetDisplayId(target->GetNativeDisplayId());
-        target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, (mod_x -1)*100, apply);
+        }
     }
 
     if (apply)
     {
+
+
         Powers PowerType = POWER_MANA;
         switch (form)
         {
@@ -2222,10 +2227,10 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
 void Aura::HandleAuraTransform(bool apply, bool Real)
 {
     Unit *target = GetTarget();
-    float mod_x = 1;
     if (apply)
     {
-        uint32 model_id;
+        float mod_x = 1;
+        uint32 model_id = 0;
 
         // Discombobulate removes mount auras.
         if (GetId() == 4060 && Real)
@@ -2319,10 +2324,12 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
                             // Gnome Male
                             case 1563:
                                 model_id = 10148;
+                                mod_x = DEFAULT_TAUREN_MALE_SCALE;
                                 break;
                             // Gnome Female
                             case 1564:
                                 model_id = 10149;
+                                mod_x = DEFAULT_TAUREN_FEMALE_SCALE;
                                 break;
                             default:
                                 break;
@@ -2350,12 +2357,11 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
                     ((Creature*)target)->LoadEquipment(ci->equipmentId, true);
             }
 
-            std::pair<unsigned int, float> info = getShapeshiftModelInfo(target->GetShapeshiftForm(), target);
-            if (target->GetDisplayId() == info.first)
-                mod_x /= info.second;
-
             if (model_id)
+            {
                 target->SetDisplayId(model_id);
+                target->setTransformScale(mod_x);
+            }
             target->setTransForm(GetId());
         }
     }
@@ -2366,6 +2372,7 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
         {
             target->setTransForm(0);
             target->SetDisplayId(target->GetNativeDisplayId());
+            target->resetTransformScale();
 
             // apply default equipment for creature case
             if (target->GetTypeId() == TYPEID_UNIT)
@@ -2392,13 +2399,14 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
             else //reapply shapeshifting, there should be only one.
             {
                 std::pair<unsigned int, float> info = getShapeshiftModelInfo(target->GetShapeshiftForm(), target);
-                mod_x /= info.second;
                 if (info.first)
+                {
                     target->SetDisplayId(info.first);
+                    target->setTransformScale(info.second);
+                }
             }
         }
     }
-    target->ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X, (mod_x -1)*100, apply);
 }
 
 void Aura::HandleForceReaction(bool apply, bool Real)
