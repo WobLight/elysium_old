@@ -11511,6 +11511,7 @@ void Unit::InitPlayerDisplayIds()
 
     uint8 gender = getGender();
 
+    SetObjectScale(DEFAULT_OBJECT_SCALE);
     switch (gender)
     {
         case GENDER_FEMALE:
