@@ -11332,6 +11332,11 @@ void Unit::RemoveAllSpellCooldown()
 
 void Unit::setTransformScale(float scale)
 {
+    if (!scale)
+    {
+        sLog.outError("Attempt to set transform scale to 0!");
+        return;
+    }
     ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X,(scale/m_nativeScaleOverride -1)*100,true);
     m_nativeScaleOverride = scale;
 }
