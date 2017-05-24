@@ -3021,7 +3021,6 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
                 return;
             }
         }
-
         // Prepare data for triggers
         prepareDataForTriggerSystem();
 
@@ -5568,6 +5567,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                         return SPELL_FAILED_ALREADY_OPEN;
                     if (!go->IsUseRequirementMet())
                         return SPELL_FAILED_TRY_AGAIN;
+
                 }
                 else if (Item* item = m_targets.getItemTarget())
                 {
@@ -7672,6 +7672,14 @@ void Spell::OnSpellLaunch()
 {
     if (!m_caster || !m_caster->IsInWorld())
         return;
+
+    if (m_spellInfo->Id == 21651 &&
+            sLockStore.LookupEntry(m_targets.getGOTarget()->GetGOInfo()->GetLockId())->Index[1] == LOCKTYPE_SLOW_OPEN)
+    {
+        Spell *visual = new Spell(m_caster, sSpellMgr.GetSpellEntry(24390), true);
+        SpellCastTargets targets;
+        visual->prepare(&targets);
+    }
 
     unitTarget = m_targets.getUnitTarget();
 
