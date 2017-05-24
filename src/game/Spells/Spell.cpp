@@ -2947,9 +2947,9 @@ bool IsAcceptableAutorepeatError(SpellCastResult result)
     return false;
 }
 
-void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
+void Spell::prepare(SpellCastTargets targets, Aura* triggeredByAura)
 {
-    m_targets = *targets;
+    m_targets = std::move(targets);
 
     m_spellState = SPELL_STATE_PREPARING;
     m_delayed = m_spellInfo->speed > 0.0f || (m_spellInfo->IsCCSpell() && m_targets.getUnitTarget() && m_targets.getUnitTarget()->IsPlayer());
@@ -4640,7 +4640,7 @@ void Spell::CastTriggerSpells()
     for (SpellInfoList::const_iterator si = m_TriggerSpells.begin(); si != m_TriggerSpells.end(); ++si)
     {
         Spell* spell = new Spell(m_caster, (*si), true, m_originalCasterGUID);
-        spell->prepare(&m_targets);                         // use original spell original targets
+        spell->prepare(m_targets);                         // use original spell original targets
     }
 }
 
@@ -7677,8 +7677,7 @@ void Spell::OnSpellLaunch()
             sLockStore.LookupEntry(m_targets.getGOTarget()->GetGOInfo()->GetLockId())->Index[1] == LOCKTYPE_SLOW_OPEN)
     {
         Spell *visual = new Spell(m_caster, sSpellMgr.GetSpellEntry(24390), true);
-        SpellCastTargets targets;
-        visual->prepare(&targets);
+        visual->prepare();
     }
 
     unitTarget = m_targets.getUnitTarget();
