@@ -2950,6 +2950,11 @@ bool IsAcceptableAutorepeatError(SpellCastResult result)
 void Spell::prepare(SpellCastTargets targets, Aura* triggeredByAura)
 {
     m_targets = std::move(targets);
+    prepare(triggeredByAura);
+}
+
+void Spell::prepare(Aura* triggeredByAura)
+{
 
     m_spellState = SPELL_STATE_PREPARING;
     m_delayed = m_spellInfo->speed > 0.0f || (m_spellInfo->IsCCSpell() && m_targets.getUnitTarget() && m_targets.getUnitTarget()->IsPlayer());
