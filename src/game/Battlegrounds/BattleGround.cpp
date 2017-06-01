@@ -1456,7 +1456,15 @@ void BattleGround::SpawnBGObject(ObjectGuid guid, uint32 respawntime)
         if (obj->getLootState() == GO_JUST_DEACTIVATED)
             obj->SetLootState(GO_READY);
 
-        obj->SetRespawnTime(obj->GetGOInfo()->type == GAMEOBJECT_TYPE_FLAGSTAND ? 0 : 3);
+        if (obj->GetGOInfo()->type != GAMEOBJECT_TYPE_FLAGSTAND)
+        {
+            obj->SetGoState(GO_STATE_READY);
+            obj->SetRespawnTime(5);
+        }
+        else
+        {
+            obj->SetRespawnTime(0);
+        }
         if (obj->GetEntry() == 178786 || obj->GetEntry() == 178787 || obj->GetEntry() == 178788 || obj->GetEntry() == 178789)
             obj->SetRespawnDelay(60);
 
@@ -1464,6 +1472,9 @@ void BattleGround::SpawnBGObject(ObjectGuid guid, uint32 respawntime)
     }
     else
     {
+        if (obj->GetGOInfo()->type != GAMEOBJECT_TYPE_FLAGSTAND)
+            obj->SetGoState(GO_STATE_ACTIVE_ALTERNATIVE);
+
         map->Add(obj);
         obj->SetRespawnTime(respawntime);
         obj->SetLootState(GO_JUST_DEACTIVATED);
