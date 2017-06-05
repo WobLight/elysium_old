@@ -328,7 +328,10 @@ void GameObject::Update(uint32 update_diff, uint32 /*p_time*/)
 
                             // respawn timer
                             GetMap()->Add(this);
-                            break;
+                            //workaround to avoid broken PvP banners
+                            WorldPacket data(SMSG_GAMEOBJECT_RESET_STATE, 8);
+                            data << GetObjectGuid();
+                            SendObjectMessageToSet(&data,true);
                     }
                 }
             }
