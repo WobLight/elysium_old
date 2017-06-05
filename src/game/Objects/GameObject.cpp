@@ -326,12 +326,19 @@ void GameObject::Update(uint32 update_diff, uint32 /*p_time*/)
                                 return;
                             }
 
-                            // respawn timer
-                            GetMap()->Add(this);
-                            //workaround to avoid broken PvP banners
-                            WorldPacket data(SMSG_GAMEOBJECT_RESET_STATE, 8);
-                            data << GetObjectGuid();
-                            SendObjectMessageToSet(&data,true);
+                            const LockEntry *lock = sLockStore.LookupEntry(GetGOInfo()->GetLockId());
+                            //workarounds for PvP banners
+                            if (lock && lock->Index[1] == LOCKTYPE_SLOW_OPEN)
+                            {
+                                m_respawnDelayTime = -1; //spawn animation
+                                GetMap()->Add(this);
+                                m_respawnDelayTime = 0;
+                                WorldPacket data(SMSG_GAMEOBJECT_RESET_STATE, 8);
+                                data << GetObjectGuid();
+                                SendObjectMessageToSet(&data,true);
+                            }
+                            else
+                                GetMap()->Add(this);
                     }
                 }
             }
