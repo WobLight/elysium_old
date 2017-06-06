@@ -572,6 +572,15 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask *
                 {
                     uint32 dynamicFlags = m_uint32Values[index];
 
+                    if (HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_TRACK_UNIT))
+                        if (Unit const * unit = ToUnit())
+                        {
+                            Unit::AuraList auras = unit->GetAurasByType(SPELL_AURA_MOD_STALKED);
+                            if (std::find_if(auras.begin(), auras.end(),[target](Aura *a){
+                                return target->GetObjectGuid() == a->GetCasterGuid() || target->GetGroup() && target->GetGroup()->GetMemberGroup(a->GetCasterGuid()) == target->GetSubGroup();
+                            }) == auras.end())
+                                dynamicFlags &= ~UNIT_DYNFLAG_TRACK_UNIT;
+                        }
                     if (Creature const* creature = ToCreature())
                     {
                         if (creature->HasLootRecipient())

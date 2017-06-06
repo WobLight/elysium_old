@@ -313,7 +313,7 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
         return false;
 
     SendUpdate();
-
+    updateSubGroupTracking(GetMemberGroup(guid));
     if (Player *player = sObjectMgr.GetPlayer(guid))
     {
         if (m_groupTeam == ALLIANCE && player->GetTeam() == HORDE ||
@@ -353,6 +353,7 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
 
 uint32 Group::RemoveMember(ObjectGuid guid, uint8 method)
 {
+    updateSubGroupTracking(GetMemberGroup(guid));
     // remove member and change leader (if need) only if strong more 2 members _before_ member remove
     if (GetMembersCount() > GetMembersMinCount())
     {
@@ -1399,6 +1400,7 @@ bool Group::_setMembersGroup(ObjectGuid guid, uint8 group)
     if (slot == m_memberSlots.end())
         return false;
 
+    uint8 oldgroup = slot->group;
     slot->group = group;
 
     SubGroupCounterIncrease(group);
@@ -1406,6 +1408,8 @@ bool Group::_setMembersGroup(ObjectGuid guid, uint8 group)
     if (!isBGGroup())
         CharacterDatabase.PExecute("UPDATE group_member SET subgroup='%u' WHERE memberGuid='%u'", group, guid.GetCounter());
 
+    updateSubGroupTracking(oldgroup);
+    updateSubGroupTracking(group);
     return true;
 }
 
@@ -1838,6 +1842,20 @@ void Group::RewardGroupAtKill(Unit* pVictim, Player* player_tap)
                 RewardGroupAtKill_helper(player_tap, pVictim, count, PvP, group_rate, sum_level, is_dungeon, not_gray_member_with_max_level, member_with_max_level, xp);
         }
     }
+}
+
+void Group::updateSubGroupTracking(uint8 subgroup)
+{
+    for (MemberSlotList::iterator mit = m_memberSlots.begin(); mit != m_memberSlots.end(); mit++)
+        if (mit->group == subgroup)
+            if (Player *player = sObjectMgr.GetPlayer(mit->guid))
+            {
+                Unit::SingleCastSpellTargetMap& scTargets = player->GetSingleCastSpellTargets();
+                for (Unit::SingleCastSpellTargetMap::iterator itr = scTargets.begin(); itr != scTargets.end();itr++)
+                    if (itr->first->IsAuraAddedBySpell(SPELL_AURA_MOD_STALKED))
+                        if (Unit *u = player->GetMap()->GetUnit(itr->second))
+                            u->ForceValuesUpdateAtIndex(UNIT_DYNAMIC_FLAGS);
+            }
 }
 
 struct BroadcastGroupUpdateHelper
