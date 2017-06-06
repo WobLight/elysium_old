@@ -1287,7 +1287,7 @@ void Unit::CastSpell(Unit* Victim, SpellEntry const *spellInfo, bool triggered, 
             targets.setSource(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ());
 
     spell->SetCastItem(castItem);
-    spell->prepare(&targets, triggeredByAura);
+    spell->prepare(std::move(targets), triggeredByAura);
 }
 
 void Unit::CastCustomSpell(Unit* Victim, uint32 spellId, int32 const* bp0, int32 const* bp1, int32 const* bp2, bool triggered, Item *castItem, Aura* triggeredByAura, ObjectGuid originalCaster, SpellEntry const* triggeredBy)
@@ -1342,7 +1342,7 @@ void Unit::CastCustomSpell(Unit* Victim, SpellEntry const *spellInfo, int32 cons
     SpellCastTargets targets;
     targets.setUnitTarget(Victim);
     spell->SetCastItem(castItem);
-    spell->prepare(&targets, triggeredByAura);
+    spell->prepare(std::move(targets), triggeredByAura);
 }
 
 // used for scripting
@@ -1390,7 +1390,7 @@ void Unit::CastSpell(float x, float y, float z, SpellEntry const *spellInfo, boo
     SpellCastTargets targets;
     targets.setDestination(x, y, z);
     spell->SetCastItem(castItem);
-    spell->prepare(&targets, triggeredByAura);
+    spell->prepare(std::move(targets), triggeredByAura);
 }
 
 // Obsolete func need remove, here only for comotability vs another patches
@@ -2836,6 +2836,13 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell, 
             canParry = false;
     }
 
+    // Check if the player can parry
+    if (pVictim->GetTypeId() == TYPEID_PLAYER)
+    {
+        if (!((Player*)pVictim)->CanParry())
+            canParry = false;
+    }
+
     if (canDodge)
     {
         // Roll dodge
@@ -2870,6 +2877,10 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell, 
 {
     // Can`t miss on dead target (on skinning for example)
     if (!pVictim->isAlive())
+        return SPELL_MISS_NONE;
+
+    // Spell cannot be resisted (not exist on dbc, custom flag)
+    if (spell->AttributesEx4 & SPELL_ATTR_EX4_IGNORE_RESISTANCES)
         return SPELL_MISS_NONE;
 
     int32 hitChance = MagicSpellHitChance(pVictim, spell, spellPtr);
@@ -2929,7 +2940,7 @@ int32 Unit::MagicSpellHitChance(Unit *pVictim, SpellEntry const *spell, Spell* s
     else
         modHitChance = 94 - (leveldif - 2) * lchance;
 
-    DEBUG_UNIT(this, DEBUG_SPELL_COMPUTE_RESISTS, "%s [%u] : Binaire [%s]. Toucher de base %f", spell->SpellName[2], spell->Id, spell->IsBinary() ? "OUI" : "NON", modHitChance);
+    DEBUG_UNIT(this, DEBUG_SPELL_COMPUTE_RESISTS, "%s [%u] : Binary [%s]. Base hit chance %f, level diff: %d", spell->SpellName[2], spell->Id, spell->IsBinary() ? "YES" : "NO", modHitChance, leveldif);
 
     // Spellmod from SPELLMOD_RESIST_MISS_CHANCE
     if (Player *modOwner = GetSpellModOwner())
@@ -3376,7 +3387,7 @@ void Unit::_UpdateAutoRepeatSpell()
 
         // we want to shoot
         Spell* spell = new Spell(this, m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo, true);
-        spell->prepare(&(m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_targets));
+        spell->prepare(m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_targets);
 
         // all went good, reset attack
         resetAttackTimer(RANGED_ATTACK);
@@ -3571,7 +3582,8 @@ Spell* Unit::FindCurrentSpellBySpellId(uint32 spell_id) const
 
 void Unit::SetInFront(Unit const* target)
 {
-    SetOrientation(GetAngle(target));
+    if (!HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_ROTATE))
+        SetOrientation(GetAngle(target));
 }
 
 void Unit::SetFacingTo(float ori)
@@ -4592,11 +4604,34 @@ void Unit::RemoveSpellAuraHolder(SpellAuraHolder *holder, AuraRemoveMode mode)
     else
         delete holder;
 
-    if (mode != AURA_REMOVE_BY_EXPIRE && IsChanneledSpell(AurSpellInfo) && caster)
+    uint32 uiTriggeredSpell = 0;
+
+    // Spell that trigger another spell on dispell	
+    if (mode == AURA_REMOVE_BY_DISPEL)
+    {
+        switch (auraSpellId)
+        {
+        case 26180:    // Wyvern Sting (AQ40, Princess Huhuran)
+            uiTriggeredSpell = 26233;
+            break;
+        default:
+            break;
+        }
+    }
+  
+    if (IsChanneledSpell(AurSpellInfo) && caster && (mode != AURA_REMOVE_BY_EXPIRE || caster->IsControlledByPlayer()))
     {
         Spell *channeled = caster->GetCurrentSpell(CURRENT_CHANNELED_SPELL);
         if (channeled && channeled->m_spellInfo->Id == auraSpellId && channeled->m_targets.getUnitTarget() == this)
             caster->InterruptSpell(CURRENT_CHANNELED_SPELL);
+    }
+
+    if (uiTriggeredSpell)
+    {
+        if (caster)
+            caster->CastSpell(this, uiTriggeredSpell, true);
+        else
+            CastSpell(this, uiTriggeredSpell, true);
     }
 }
 
@@ -5057,8 +5092,7 @@ void Unit::ProcDamageAndSpell(Unit *pVictim, uint32 procAttacker, uint32 procVic
 
     // Now go on with a victim's events'n'auras
     // Not much to do if no flags are set or there is no victim
-    // Don't proc victim auras if its a miss / resist
-    if (pVictim && pVictim->isAlive() && procVictim && !(PROC_EX_RESIST & procExtra) && !(PROC_EX_MISS & procExtra))
+    if (pVictim && pVictim->isAlive() && procVictim)
         pVictim->ProcDamageAndSpellFor(true, this, procVictim, procExtra, attType, procSpell, amount, procTriggered, spell);
 
     HandleTriggers(pVictim, procExtra, amount, procSpell, procTriggered);
@@ -5351,42 +5385,42 @@ ReputationRank Unit::GetReactionTo(Unit const* target) const
                 return *repRank;
     }
 
-    // Interaction between pvp flagged units
-    if (HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE) &&
-        target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE))
+    if (HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE))
     {
-        if (selfPlayerOwner && targetPlayerOwner)
+        if (target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE))
         {
-            // always friendly to other unit controlled by player, or to the player himself
-            if (selfPlayerOwner == targetPlayerOwner)
-                return REP_FRIENDLY;
+            if (selfPlayerOwner && targetPlayerOwner)
+            {
+                // always friendly to other unit controlled by player, or to the player himself
+                if (selfPlayerOwner == targetPlayerOwner)
+                    return REP_FRIENDLY;
 
-            // duel - always hostile to opponent
-            if (selfPlayerOwner->duel && selfPlayerOwner->duel->opponent == targetPlayerOwner && selfPlayerOwner->duel->startTime != 0 && !selfPlayerOwner->duel->finished)
+                // duel - always hostile to opponent
+                if (selfPlayerOwner->duel && selfPlayerOwner->duel->opponent == targetPlayerOwner && selfPlayerOwner->duel->startTime != 0 && !selfPlayerOwner->duel->finished)
+                    return REP_HOSTILE;
+
+                // same group - checks dependant only on our faction - skip FFA_PVP for example
+                if (selfPlayerOwner->IsInRaidWith(targetPlayerOwner))
+                    return REP_FRIENDLY; // return true to allow config option AllowTwoSide.Interaction.Group to work
+                // however client seems to allow mixed group parties, because in 13850 client it works like:
+                // return GetFactionReactionTo(getFactionTemplateEntry(), target);
+
+                // Sanctuary
+                if (selfPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_SANCTUARY) && targetPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_SANCTUARY))
+                    return REP_FRIENDLY;
+
+                // Nostalrius: Hackfix because UNIT_BYTE2_FLAG_FFA_PVP is not implemented yet.
+                if (selfPlayerOwner->IsFFAPvP() && targetPlayerOwner->IsFFAPvP())
+                    return REP_HOSTILE;
+            }
+
+            // check FFA_PVP - not implemented that way on MaNGOS :/
+            /*
+            if (GetByteValue(UNIT_FIELD_BYTES_2, 1) & UNIT_BYTE2_FLAG_FFA_PVP
+                && target->GetByteValue(UNIT_FIELD_BYTES_2, 1) & UNIT_BYTE2_FLAG_FFA_PVP)
                 return REP_HOSTILE;
-
-            // same group - checks dependant only on our faction - skip FFA_PVP for example
-            if (selfPlayerOwner->IsInRaidWith(targetPlayerOwner))
-                return REP_FRIENDLY; // return true to allow config option AllowTwoSide.Interaction.Group to work
-            // however client seems to allow mixed group parties, because in 13850 client it works like:
-            // return GetFactionReactionTo(getFactionTemplateEntry(), target);
-
-            // Sanctuary
-            if (selfPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_SANCTUARY) && targetPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_SANCTUARY))
-                return REP_FRIENDLY;
-
-            // Nostalrius: Hackfix because UNIT_BYTE2_FLAG_FFA_PVP is not implemented yet.
-            if (selfPlayerOwner->IsFFAPvP() && targetPlayerOwner->IsFFAPvP())
-                return REP_HOSTILE;
+            */
         }
-
-        // check FFA_PVP - not implemented that way on MaNGOS :/
-        /*
-        if (GetByteValue(UNIT_FIELD_BYTES_2, 1) & UNIT_BYTE2_FLAG_FFA_PVP
-            && target->GetByteValue(UNIT_FIELD_BYTES_2, 1) & UNIT_BYTE2_FLAG_FFA_PVP)
-            return REP_HOSTILE;
-        */
-
         if (selfPlayerOwner)
         {
             if (FactionTemplateEntry const* targetFactionTemplateEntry = target->getFactionTemplateEntry())
@@ -5399,7 +5433,7 @@ ReputationRank Unit::GetReactionTo(Unit const* target) const
                     {
                         // check contested flags
                         if (targetFactionTemplateEntry->factionFlags & FACTION_TEMPLATE_FLAG_CONTESTED_GUARD
-                                && selfPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
+                            && selfPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
                             return REP_HOSTILE;
 
                         // if faction has reputation, hostile state depends only from AtWar state
@@ -5412,22 +5446,6 @@ ReputationRank Unit::GetReactionTo(Unit const* target) const
             }
         }
     }
-
-    // Player reaction against Neutral faction Creature
-    if (selfPlayerOwner && !targetPlayerOwner)
-    {
-        if (FactionTemplateEntry const* targetFactionTemplateEntry = target->getFactionTemplateEntry())
-        {
-            if (FactionEntry const* targetFactionEntry = sFactionStore.LookupEntry(targetFactionTemplateEntry->faction))
-            {
-                if(targetFactionEntry->CanHaveReputation())
-                {
-                    return selfPlayerOwner->GetReputationMgr().GetRank(targetFactionEntry);
-                }
-            }
-        }
-    }
-
     // do checks dependant only on our faction
     return GetFactionReactionTo(getFactionTemplateEntry(), target);
 }
@@ -6017,6 +6035,10 @@ int32 Unit::DealHeal(Unit *pVictim, uint32 addhealth, SpellEntry const *spellPro
     if (unit->GetTypeId() == TYPEID_PLAYER)
         unit->SendHealSpellLog(pVictim, spellProto->Id, addhealth, critical);
 
+    // Script Event HealedBy
+    if (pVictim->AI())
+        pVictim->AI()->HealedBy(this, addhealth);
+
     return gain;
 }
 
@@ -6164,6 +6186,10 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
     if (!spellProto || !pVictim || damagetype == DIRECT_DAMAGE)
         return pdamage;
 
+    // Ignite damage already includes modifiers
+    if (spellProto->IsFitToFamily<SPELLFAMILY_MAGE, CF_MAGE_IGNITE>())
+        return pdamage;
+
     // For totems get damage bonus from owner (statue isn't totem in fact)
     if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType() != TOTEM_STATUE)
     {
@@ -6198,9 +6224,7 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
     }
 
     uint32 creatureTypeMask = pVictim->GetCreatureTypeMask();
-    // Add flat bonus from spell damage versus
-    DoneTotal += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_FLAT_SPELL_DAMAGE_VERSUS, creatureTypeMask);
-
+    
     // Add pct bonus from spell damage versus
     DoneTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_DONE_VERSUS, creatureTypeMask);
 
@@ -6243,6 +6267,9 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
 
     // Done fixed damage bonus auras
     int32 DoneAdvertisedBenefit = SpellBaseDamageBonusDone(GetSpellSchoolMask(spellProto));
+
+    // Add flat bonus from spell damage versus
+    DoneAdvertisedBenefit += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_FLAT_SPELL_DAMAGE_VERSUS, creatureTypeMask);
 
     // Pets just add their bonus damage to their spell damage
     // note that their spell damage is just gain of their own auras
@@ -6799,7 +6826,8 @@ uint32 Unit::MeleeDamageBonusDone(Unit* pVictim, uint32 pdamage, WeaponAttackTyp
         for (AuraList::const_iterator i = mModDamageDone.begin(); i != mModDamageDone.end(); ++i)
         {
             if ((*i)->GetModifier()->m_miscvalue & schoolMask &&                         // schoolmask has to fit with the intrinsic spell school
-                    (*i)->GetModifier()->m_miscvalue & GetMeleeDamageSchoolMask() &&         // AND schoolmask has to fit with weapon damage school (essential for non-physical spells)
+                    ((*i)->GetModifier()->m_miscvalue & GetMeleeDamageSchoolMask() ||    // AND schoolmask has to fit with weapon damage school (essential for non-physical spells)
+                     spellProto->DmgClass == SPELL_DAMAGE_CLASS_RANGED) &&               // Some ranged physical attacks use magic damage, ex. Arcane Shot
                     (((*i)->GetSpellProto()->EquippedItemClass == -1) ||                     // general, weapon independent
                      (pWeapon && pWeapon->IsFitToSpellRequirements((*i)->GetSpellProto()))))  // OR used weapon fits aura requirements
                 DoneFlat += (*i)->GetModifier()->m_amount;
@@ -7838,10 +7866,10 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
 
 
         // TODO: Actually such opcodes should (always?) be packed with SMSG_COMPRESSED_MOVES
-        // Nostalrius:
-        // Impossible d'envoyer ici le paquet 'MSG_MOVE_SET_*_SPEED', car on ne connait pas les flags de mouvements, et la position cote client
-        // (mise a jour toutes les 0.5 sec). Si on envoit un paquet, on abouti a une desynchro (en l'absence d'interpolation de la position)
-        // Ce paquet sera envoye apres reception d'un paquet type 'CMSG_FORCE_*_SPEED_CHANGE_ACK' (MovementHandler.cpp)
+        // Nostalrius: (google translated)
+        // Unable to send here the package 'MSG_MOVE_SET _ * _ SPEED', because we do not know the flags of movements, and the position dimension client
+        // (update every 0.5 sec). If one sends a packet, one leads to a desynchro (in the absence of interpolation of the position)
+        // This package will be sent after receiving a packet type 'CMSG_FORCE _ * _ SPEED_CHANGE_ACK' (MovementHandler.cpp)
         //m_updateFlag |= UPDATEFLAG_LIVING; // Mise a jour des mouvements en cours, spline, vitesses, etc ... Inutile ?
 
         propagateSpeedChange();
@@ -7878,7 +7906,7 @@ void Unit::SetDeathState(DeathState s)
 
         i_motionMaster.Clear(false, true);
         i_motionMaster.MoveIdle();
-        StopMoving();
+        StopMoving(true);
 
         ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
         // remove aurastates allowing special moves
@@ -9353,7 +9381,7 @@ void Unit::SendPetAIReaction()
 
 ///----------End of Pet responses methods----------
 
-void Unit::StopMoving()
+void Unit::StopMoving(bool force)
 {
     clearUnitState(UNIT_STAT_MOVING);
     RemoveUnitMovementFlag(MOVEFLAG_MASK_MOVING);
@@ -9362,13 +9390,18 @@ void Unit::StopMoving()
         return;
 
     Movement::MoveSplineInit init(*this, "StopMoving");
-    if (Transport* t = GetTransport())
+    if (Transport* t = GetTransport()) {
         init.SetTransport(t->GetGUIDLow());
-    if (GetTypeId() == TYPEID_PLAYER && !movespline->Finalized())
+    }
+    
+    if (!movespline->Finalized() || force) {
         init.SetStop(); // Will trigger CMSG_MOVE_SPLINE_DONE from client.
-    else
+        init.Launch();
+    }
+    else if (GetTypeId() != TYPEID_PLAYER) {
         init.SetFacing(GetOrientation());
-    init.Launch();
+        init.Launch();
+    }
 
     DisableSpline();
 }
@@ -9676,7 +9709,7 @@ void Unit::UpdateReactives(uint32 p_time)
     }
 }
 
-Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /*= ATTACK_DISTANCE*/) const
+Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /*= ATTACK_DISTANCE*/, bool inFront) const
 {
     std::list<Unit *> targets;
 
@@ -9691,7 +9724,7 @@ Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /
     // remove not LoS targets
     for (std::list<Unit *>::iterator tIter = targets.begin(); tIter != targets.end();)
     {
-        if (!IsWithinLOSInMap(*tIter))
+        if ((!IsWithinLOSInMap(*tIter)) || (inFront && !this->HasInArc(M_PI_F / 2, *tIter)))
         {
             std::list<Unit *>::iterator tIter2 = tIter;
             ++tIter;
@@ -9726,6 +9759,9 @@ Unit* Unit::SelectRandomFriendlyTarget(Unit* except /*= NULL*/, float radius /*=
     // remove current target
     if (except)
         targets.remove(except);
+
+    // remove self
+    targets.remove((Unit *) this);
 
     // remove not LoS targets
     for (std::list<Unit *>::iterator tIter = targets.begin(); tIter != targets.end();)
@@ -11072,6 +11108,7 @@ void Unit::SetMovement(UnitMovementType pType)
     WorldPacket data;
     if (!movespline->Finalized())
     {
+        // Spline roots are sent here.
         MovementData mvtData(this);
         switch (pType)
         {
@@ -11100,7 +11137,6 @@ void Unit::SetMovement(UnitMovementType pType)
     if (!mePlayer && !controller)
         return;
 
-    // NOSTALRIUS: TODO: Envoyer 'MSG_MOVE_ROOT' aux autres, ou un Heartbeat ?
     switch (pType)
     {
         case MOVE_ROOT:
@@ -11125,6 +11161,16 @@ void Unit::SetMovement(UnitMovementType pType)
     {
         mePlayer->GetCheatData()->OrderSent(&data);
         mePlayer->GetSession()->SendPacket(&data);
+        
+        // We can't send movement info here because it is out-of-date with the client
+        // and causes issues with unit speed updates on death/res
+        /*if (pType == MOVE_ROOT || pType == MOVE_UNROOT) {
+            WorldPacket rootData(pType == MOVE_ROOT ? MSG_MOVE_ROOT : MSG_MOVE_UNROOT, 31);
+            rootData << GetPackGUID();
+            rootData << m_movementInfo;
+            
+            mePlayer->SendMovementMessageToSet(std::move(rootData), false);
+        }*/
     }
     if (controller)
         controller->GetSession()->SendPacket(&data);
@@ -11274,6 +11320,33 @@ void Unit::RemoveAllSpellCooldown()
 
         m_spellCooldowns.clear();
     }
+}
+
+void Unit::setTransformScale(float scale)
+{
+    if (!scale)
+    {
+        sLog.outError("Attempt to set transform scale to 0!");
+        return;
+    }
+    ApplyPercentModFloatValue(OBJECT_FIELD_SCALE_X,(scale/m_nativeScaleOverride -1)*100,true);
+    m_nativeScaleOverride = scale;
+}
+
+void Unit::resetTransformScale()
+{
+    setTransformScale(getNativeScale());
+}
+
+float Unit::getNativeScale() const
+{
+    return m_nativeScale;
+}
+
+void Unit::setNativeScale(float scale)
+{
+    setTransformScale(scale);
+    m_nativeScale = scale;
 }
 
 void Unit::CooldownEvent(SpellEntry const *spellInfo, uint32 itemId, Spell* spell)
@@ -11429,22 +11502,24 @@ void Unit::InitPlayerDisplayIds()
         return;
 
     uint8 gender = getGender();
-    if (getRace() == RACE_TAUREN)
-        SetObjectScale(gender == GENDER_MALE ? DEFAULT_TAUREN_MALE_SCALE : DEFAULT_TAUREN_FEMALE_SCALE);
-    else
-        SetObjectScale(DEFAULT_OBJECT_SCALE);
 
+    SetObjectScale(DEFAULT_OBJECT_SCALE);
     switch (gender)
     {
         case GENDER_FEMALE:
             SetDisplayId(info->displayId_f);
             SetNativeDisplayId(info->displayId_f);
+            if (getRace() == RACE_TAUREN)
+                setNativeScale(DEFAULT_TAUREN_FEMALE_SCALE);
             break;
         case GENDER_MALE:
             SetDisplayId(info->displayId_m);
             SetNativeDisplayId(info->displayId_m);
+            if (getRace() == RACE_TAUREN)
+                setNativeScale(DEFAULT_TAUREN_MALE_SCALE);
             break;
         default:
             return;
     }
+
 }

@@ -106,8 +106,6 @@ void WorldSession::HandleMoveWorldportAckOpcode()
     if (GetPlayer()->m_InstanceValid == false && !mEntry->IsDungeon())
         GetPlayer()->m_InstanceValid = true;
 
-    GetPlayer()->SetSemaphoreTeleportFar(false);
-
     // relocate the player to the teleport destination
     if (!map)
     {
@@ -127,6 +125,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
     // while the player is in transit, for example the map may get full
     if (!GetPlayer()->GetMap()->Add(GetPlayer()))
     {
+        GetPlayer()->SetSemaphoreTeleportFar(false);
         // if player wasn't added to map, reset his map pointer!
         GetPlayer()->ResetMap();
 
@@ -143,6 +142,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
         }
         return;
     }
+    GetPlayer()->SetSemaphoreTeleportFar(false);
 
     // battleground state prepare (in case join to BG), at relogin/tele player not invited
     // only add to bg group and object, if the player was invited (else he entered through command)
@@ -265,6 +265,7 @@ void WorldSession::HandleMovementOpcodes(WorldPacket & recv_data)
     Unit *mover = _player->GetMover();
     if (mover->GetObjectGuid() != _clientMoverGuid)
         return;
+        
     Player *plMover = mover->GetTypeId() == TYPEID_PLAYER ? (Player*)mover : NULL;
 
     // ignore, waiting processing in WorldSession::HandleMoveWorldportAckOpcode and WorldSession::HandleMoveTeleportAck
@@ -386,21 +387,24 @@ void WorldSession::HandleForceSpeedChangeAckOpcodes(WorldPacket &recv_data)
     // Daemon TODO: enregistrement de cette position ?
     // Daemon: mise a jour de la vitesse pour les joueurs a cote.
     // Cf Unit::SetSpeedRate pour plus d'infos.
-    const uint16 SetSpeed2Opc_table[MAX_MOVE_TYPE][2] =
+    const uint16 SetSpeed2Opc_table[MAX_MOVE_TYPE][3] =
     {
-        {MSG_MOVE_SET_WALK_SPEED,       SMSG_FORCE_WALK_SPEED_CHANGE},
-        {MSG_MOVE_SET_RUN_SPEED,        SMSG_FORCE_RUN_SPEED_CHANGE},
-        {MSG_MOVE_SET_RUN_BACK_SPEED,   SMSG_FORCE_RUN_BACK_SPEED_CHANGE},
-        {MSG_MOVE_SET_SWIM_SPEED,       SMSG_FORCE_SWIM_SPEED_CHANGE},
-        {MSG_MOVE_SET_SWIM_BACK_SPEED,  SMSG_FORCE_SWIM_BACK_SPEED_CHANGE},
-        {MSG_MOVE_SET_TURN_RATE,        SMSG_FORCE_TURN_RATE_CHANGE},
+        {MSG_MOVE_SET_WALK_SPEED,       SMSG_FORCE_WALK_SPEED_CHANGE,       SMSG_SPLINE_SET_WALK_SPEED},
+        {MSG_MOVE_SET_RUN_SPEED,        SMSG_FORCE_RUN_SPEED_CHANGE,        SMSG_SPLINE_SET_RUN_SPEED},
+        {MSG_MOVE_SET_RUN_BACK_SPEED,   SMSG_FORCE_RUN_BACK_SPEED_CHANGE,   SMSG_SPLINE_SET_RUN_BACK_SPEED},
+        {MSG_MOVE_SET_SWIM_SPEED,       SMSG_FORCE_SWIM_SPEED_CHANGE,       SMSG_SPLINE_SET_SWIM_SPEED},
+        {MSG_MOVE_SET_SWIM_BACK_SPEED,  SMSG_FORCE_SWIM_BACK_SPEED_CHANGE,  SMSG_SPLINE_SET_SWIM_BACK_SPEED},
+        {MSG_MOVE_SET_TURN_RATE,        SMSG_FORCE_TURN_RATE_CHANGE,        SMSG_SPLINE_SET_TURN_RATE},
     };
+    
+    // Maybe update movespeed using the spline packet. works for move splines
+    // and normal movement, but reverted due to issues in same changeset
     WorldPacket data(SetSpeed2Opc_table[move_type][0], 31);
     data << _player->GetMover()->GetPackGUID();
     data << movementInfo;
     data << float(newspeed);
     _player->SendMovementMessageToSet(std::move(data), false);
-
+    
     if (!_player->GetMover()->movespline->Finalized())
     {
         WorldPacket splineData(SMSG_MONSTER_MOVE, 31);
@@ -439,7 +443,8 @@ void WorldSession::HandleMoveNotActiveMoverOpcode(WorldPacket &recv_data)
     recv_data >> mi;
     _clientMoverGuid = ObjectGuid();
 
-    if (_player->GetMover()->GetObjectGuid() == old_mover_guid)
+    // Client sent not active mover, but maybe the mover is actually set?
+    if (_player->GetMover() && _player->GetMover()->GetObjectGuid() == old_mover_guid)
     {
         DETAIL_LOG("HandleMoveNotActiveMover: incorrect mover guid: mover is %s and should be %s instead of %s",
                        _player->GetMover()->GetGuidStr().c_str(),
@@ -636,7 +641,7 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
         plMover->m_movementInfo = movementInfo;
 
         // super smart decision; rework required
-        if (ObjectGuid lootGuid = plMover->GetLootGuid())
+        if (ObjectGuid lootGuid = plMover->GetLootGuid() && !lootGuid.IsItem())
             plMover->SendLootRelease(lootGuid);
 
         // Nostalrius - antiundermap1
@@ -761,7 +766,7 @@ void WorldSession::HandleMoveUnRootAck(WorldPacket& recv_data)
     if (!_player->GetCheatData()->HandleAnticheatTests(movementInfo, this, &recv_data))
         return;
 
-    // Position change
+    // Update position if it has changed (possible on UNROOT ack?)
     HandleMoverRelocation(movementInfo);
     _player->UpdateFallInformationIfNeed(movementInfo, recv_data.GetOpcode());
 
@@ -769,6 +774,8 @@ void WorldSession::HandleMoveUnRootAck(WorldPacket& recv_data)
     data << _player->GetPackGUID();
     movementInfo.Write(data);
     _player->SendMovementMessageToSet(std::move(data), true, _player);
+    
+    // Clear unit client state for brevity, though it should not be used
     _player->clearUnitState(UNIT_STAT_CLIENT_ROOT);
 }
 
@@ -798,11 +805,14 @@ void WorldSession::HandleMoveRootAck(WorldPacket& recv_data)
     // Position change
     HandleMoverRelocation(movementInfo);
     _player->UpdateFallInformationIfNeed(movementInfo, recv_data.GetOpcode());
-
+    
     WorldPacket data(MSG_MOVE_ROOT, recv_data.size());
     data << _player->GetPackGUID();
     movementInfo.Write(data);
     _player->SendMovementMessageToSet(std::move(data), true, _player);
+    
+    // Set unit client state for brevity, though it should not be used
+    _player->addUnitState(UNIT_STAT_CLIENT_ROOT);
 }
 
 void WorldSession::HandleMoveSplineDoneOpcode(WorldPacket& recv_data)

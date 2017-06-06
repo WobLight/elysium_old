@@ -191,6 +191,8 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleSpamerList(char* args);
         bool HandleWhisperRestrictionCommand(char* args);
 
+        bool HandleGoldRemoval(char* args);
+
         // Packet dump
         bool HandleReplayPlayCommand(char *);
         bool HandleReplayRecordCommand(char *);
@@ -393,6 +395,7 @@ class MANGOS_DLL_SPEC ChatHandler
 
         bool HandleDebugPlayCinematicCommand(char* args);
         bool HandleDebugPlaySoundCommand(char* args);
+        bool HandleDebugPlayMusicCommand(char* args);
 
         bool HandleDebugSendBuyErrorCommand(char* args);
         bool HandleDebugSendChannelNotifyCommand(char* args);
@@ -550,6 +553,10 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleModifyDodgeCommand(char* args);
         bool HandleModifyParryCommand(char* args);
 
+        bool HandleModifyCrCommand(char *args);
+        bool HandleModifyBrCommand(char *args);
+
+
         //-----------------------Npc Commands-----------------------
         bool HandleNpcAddCommand(char* args);
         bool HandleNpcSummonCommand(char* args);
@@ -615,6 +622,7 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleReloadAllLocalesCommand(char* args);
 
         bool HandleReloadConfigCommand(char* args);
+
 
         bool HandleReloadAreaTriggerTavernCommand(char* args);
         bool HandleReloadAreaTriggerTeleportCommand(char* args);

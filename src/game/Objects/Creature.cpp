@@ -277,7 +277,8 @@ bool Creature::InitEntry(uint32 Entry, Team team, CreatureData const* data /*=NU
     SetEntry(Entry);                                        // normal entry always
     m_creatureInfo = cinfo;                                 // map mode related always
 
-    SetObjectScale(cinfo->scale);
+    SetObjectScale(DEFAULT_OBJECT_SCALE);
+    setNativeScale(cinfo->scale);
 
     // equal to player Race field, but creature does not have race
     SetByteValue(UNIT_FIELD_BYTES_0, 0, 0);
@@ -356,10 +357,107 @@ uint32 Creature::GetSpawnFlags() const
     return 0;
 }
 
+void Creature::UnloadCreatureAddon(const CreatureDataAddon* data)
+{
+    if (data->mount != 0)
+        Unmount();
+
+    if (data->bytes1 != 0)
+    {
+        // 0 StandState
+        // 1 LoyaltyLevel  Pet only, so always 0 for default creature
+        // 2 ShapeshiftForm     Must be determined/set by shapeshift spell/aura
+        // 3 StandMiscFlags
+
+        SetByteValue(UNIT_FIELD_BYTES_1, 0, 0);
+        //SetByteValue(UNIT_FIELD_BYTES_1, 1, 0);
+        //SetByteValue(UNIT_FIELD_BYTES_1, 1, 0);
+        //SetByteValue(UNIT_FIELD_BYTES_2, 2, 0);
+        SetByteValue(UNIT_FIELD_BYTES_1, 3, 0);
+    }
+
+    // UNIT_FIELD_BYTES_2
+    // 0 SheathState
+    // 1 Bytes2Flags, in 3.x used UnitPVPStateFlags, that have different meaning
+    // 2 UnitRename         Pet only, so always 0 for default creature
+    // 3 ShapeshiftForm     Must be determined/set by shapeshift spell/aura
+    SetByteValue(UNIT_FIELD_BYTES_2, 0, 0);
+
+    if (data->flags != 0)
+        SetByteValue(UNIT_FIELD_BYTES_2, 1, 0);
+
+    //SetByteValue(UNIT_FIELD_BYTES_2, 2, 0);
+    //SetByteValue(UNIT_FIELD_BYTES_2, 3, 0);
+
+    if (data->emote != 0)
+        SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
+
+    if (data->move_flags & SPLINEFLAG_FLYING)
+        SetFly(false);
+
+    if (data->auras)
+    {
+        for (uint32 const* cAura = data->auras; *cAura; ++cAura)
+        {
+            if (HasAura(*cAura))
+            {
+                RemoveAurasDueToSpellByCancel(*cAura);
+            }
+        }
+    }
+}
+
 bool Creature::UpdateEntry(uint32 Entry, Team team, const CreatureData *data /*=NULL*/, GameEventCreatureData const* eventData /*=NULL*/, bool preserveHPAndPower /*=true*/)
 {
+    bool addonReload = false;
+
+    /*
+     * This section of code is an attempt to handle the case where creature entry IDs are
+     * updated after creature creation. This is typically done to randomise trash spawn
+     * types and it works (mostly) fine until the different creature entries have different
+     * creature_template_aura entries. What we want to do is ensure auras belonging to
+     * the previous creature entry are removed and auras belonging to the new creature
+     * entry are applied. This complication is that this function is also called 
+     * from several other spots, including Creature::Create, which causes a
+     * few problems if not handled correctly, for some definition of correct.
+     *
+     * TL;DR: Hack to handle randomised trash spawn auras without requiring
+     * script authors to do it explicitly and/or breaking existing code.
+     * Would be better to have a spawn system that could properly handle
+     * random entries.
+     */
+    if (m_creatureInfo) // prevent aura unloading if this creature is still under creation
+    {
+        auto newAddonData = ObjectMgr::GetCreatureTemplateAddon(Entry);
+        auto prevAddonData = ObjectMgr::GetCreatureTemplateAddon(m_creatureInfo->Entry);
+        auto creaAddonData = ObjectMgr::GetCreatureAddon(GetGUIDLow());
+
+        /* 
+         * Auras listed in creature_addon override anything contained in creature_template_addon, 
+         * so we don't want to unload GUID-based auras, even if we're changing the template entry
+         */
+        if (!creaAddonData && prevAddonData != newAddonData)
+        {
+            addonReload = true;
+
+            /* 
+             * Looks like we're changing the creature's entry ID, so remove any auras
+             * coming from the creature_template_auras table
+             */
+            if (prevAddonData)
+            {
+                UnloadCreatureAddon(prevAddonData);
+            }
+        }
+    }
+
     if (!InitEntry(Entry, team, data, eventData))
         return false;
+
+    if (addonReload)
+    {
+        LoadCreatureAddon(true);
+    }
 
     m_regenHealth = GetCreatureInfo()->RegenHealth;
 
@@ -429,7 +527,7 @@ bool Creature::UpdateEntry(uint32 Entry, Team team, const CreatureData *data /*=
     // checked and error show at loading templates
     if (FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(GetCreatureInfo()->faction_A))
     {
-        if (factionTemplate->factionFlags & FACTION_TEMPLATE_FLAG_PVP)
+        if (factionTemplate->factionFlags & FACTION_TEMPLATE_FLAG_PVP || IsCivilian())
             SetPvP(true);
         else
             SetPvP(false);
@@ -1792,6 +1890,21 @@ bool Creature::IsImmuneToDamage(SpellSchoolMask meleeSchoolMask)
     return Unit::IsImmuneToDamage(meleeSchoolMask);
 }
 
+// hacky - seems to be the only way of doing this without wasting more time
+void Creature::SetTauntImmunity(bool immune)
+{
+    if (immune)
+    {
+        auto info = const_cast<CreatureInfo*>(m_creatureInfo);
+        info->flags_extra |= CREATURE_FLAG_EXTRA_NOT_TAUNTABLE;
+    }
+    else
+    {
+        auto info = const_cast<CreatureInfo*>(m_creatureInfo);
+        info->flags_extra ^= CREATURE_FLAG_EXTRA_NOT_TAUNTABLE;
+    }
+}
+
 bool Creature::IsImmuneToSpellEffect(SpellEntry const *spellInfo, SpellEffectIndex index, bool castOnSelf) const
 {
     if (!castOnSelf && spellInfo->EffectMechanic[index] && GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->EffectMechanic[index] - 1)))
@@ -2951,6 +3064,9 @@ void Creature::OnEnterCombat(Unit* pWho, bool notInCombat)
         if (m_zoneScript)
             m_zoneScript->OnCreatureEnterCombat(this);
 
+        if (IsMounted())
+            Unmount();
+
         if (i_AI)
             i_AI->EnterCombat(pWho);
     }
@@ -2983,7 +3099,7 @@ Unit* Creature::GetNearestVictimInRange(float min, float max)
             continue;
 
         float currRange = GetDistance(pTarget);
-        if (currRange < bestRange && currRange > min)
+        if (currRange <= bestRange && currRange >= min)
         {
             bestRange = currRange;
             pUnit = pTarget;
