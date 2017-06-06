@@ -25,6 +25,7 @@
 #include "WorldPacket.h"
 #include "Database/DatabaseEnv.h"
 #include "ItemEnchantmentMgr.h"
+#include "Anticheat.h"
 
 void AddItemsSetItem(Player* player, Item* item)
 {
