@@ -486,7 +486,7 @@ class Spell
         void TriggerGlobalCooldown();
         void CancelGlobalCooldown();
 
-        void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
+        void SendLoot(Lootable *obj, LootType loottype, LockType lockType);
         bool IgnoreItemRequirements() const;                        // some item use spells have unexpected reagent data
         void UpdateOriginalCasterPointer();
 

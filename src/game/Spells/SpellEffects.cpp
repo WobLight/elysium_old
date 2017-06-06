@@ -2451,7 +2451,7 @@ void Spell::EffectEnergize(SpellEffectIndex eff_idx)
     m_caster->EnergizeBySpell(unitTarget, m_spellInfo->Id, damage, power);
 }
 
-void Spell::SendLoot(ObjectGuid guid, LootType loottype, LockType lockType)
+void Spell::SendLoot(Lootable *obj, LootType loottype, LockType lockType)
 {
     if (gameObjTarget)
     {
@@ -2488,7 +2488,7 @@ void Spell::SendLoot(ObjectGuid guid, LootType loottype, LockType lockType)
         return;
 
     // Send loot
-    ((Player*)m_caster)->SendLoot(guid, loottype);
+    ((Player*)m_caster)->SendLoot(obj, loottype);
 }
 
 void Spell::EffectOpenLock(SpellEffectIndex eff_idx)
@@ -2502,7 +2502,7 @@ void Spell::EffectOpenLock(SpellEffectIndex eff_idx)
     Player* player = (Player*)m_caster;
 
     uint32 lockId = 0;
-    ObjectGuid guid;
+    Lootable *lootable;
 
     // Get lockId
     if (gameObjTarget)
@@ -2530,12 +2530,12 @@ void Spell::EffectOpenLock(SpellEffectIndex eff_idx)
                 return;
         }
         lockId = goInfo->GetLockId();
-        guid = gameObjTarget->GetObjectGuid();
+        lootable = gameObjTarget;
     }
     else if (itemTarget)
     {
         lockId = itemTarget->GetProto()->LockID;
-        guid = itemTarget->GetObjectGuid();
+        lootable = itemTarget;
     }
     else
     {
@@ -2558,7 +2558,7 @@ void Spell::EffectOpenLock(SpellEffectIndex eff_idx)
     if (itemTarget)
         itemTarget->SetFlag(ITEM_FIELD_FLAGS, ITEM_DYNFLAG_UNLOCKED);
 
-    SendLoot(guid, LOOT_SKINNING, LockType(m_spellInfo->EffectMiscValue[eff_idx]));
+    SendLoot(lootable, LOOT_SKINNING, LockType(m_spellInfo->EffectMiscValue[eff_idx]));
 
     if (gameObjTarget)
     {
@@ -2589,7 +2589,7 @@ void Spell::EffectOpenLock(SpellEffectIndex eff_idx)
         }
     }
 
-    AddExecuteLogInfo(eff_idx, ExecuteLogInfo(guid));
+    AddExecuteLogInfo(eff_idx, ExecuteLogInfo(dynamic_cast<Object *>(lootable)->GetObjectGuid()));
 }
 
 void Spell::EffectSummonChangeItem(SpellEffectIndex eff_idx)
