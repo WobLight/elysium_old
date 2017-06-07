@@ -307,7 +307,6 @@ class MANGOS_DLL_SPEC Group
 
         void RewardGroupAtKill(Unit* pVictim, Player* player_tap);
 
-        void updateSubGroupTracking(uint8 subgroup);
         /*********************************************************/
         /***                   LOOT SYSTEM                     ***/
         /*********************************************************/

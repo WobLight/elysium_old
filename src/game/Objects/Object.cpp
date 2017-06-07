@@ -571,13 +571,12 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask *
                 else if (index == UNIT_DYNAMIC_FLAGS)
                 {
                     uint32 dynamicFlags = m_uint32Values[index];
-
                     if (HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_TRACK_UNIT))
                         if (Unit const * unit = ToUnit())
                         {
                             Unit::AuraList auras = unit->GetAurasByType(SPELL_AURA_MOD_STALKED);
                             if (std::find_if(auras.begin(), auras.end(),[target](Aura *a){
-                                return target->GetObjectGuid() == a->GetCasterGuid() || target->GetGroup() && target->GetGroup()->GetMemberGroup(a->GetCasterGuid()) == target->GetSubGroup();
+                                return target->GetObjectGuid() == a->GetCasterGuid();
                             }) == auras.end())
                                 dynamicFlags &= ~UNIT_DYNFLAG_TRACK_UNIT;
                         }
