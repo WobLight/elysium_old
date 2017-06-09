@@ -92,7 +92,7 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId)
       i_data(NULL), i_script_id(0), m_unloading(false), m_crashed(false),
       _processingSendObjUpdates(false), _processingUnitsRelocation(false),
       m_updateFinished(false), m_updateDiffMod(0), m_GridActivationDistance(DEFAULT_VISIBILITY_DISTANCE),
-      _lastPlayersUpdate(WorldTimer::getMSTime()), _lastMapUpdate(WorldTimer::getMSTime()),
+      _lastPlayersUpdate(WorldTimer::getMSTime()), _lastMapUpdate(0),
       _lastCellsUpdate(WorldTimer::getMSTime()), _inactivePlayersSkippedUpdates(0),
       _objUpdatesThreads(0), _unitRelocationThreads(0), _lastPlayerLeftTime(0), m_diffBuffer(0)
 {
@@ -848,7 +848,7 @@ void Map::UpdatePlayers()
 void Map::DoUpdate(uint32 maxDiff)
 {
     uint32 now = WorldTimer::getMSTime();
-    uint32 diff = WorldTimer::getMSTimeDiff(_lastMapUpdate, now);
+    uint32 diff = _lastMapUpdate?WorldTimer::getMSTimeDiff(_lastMapUpdate, now):maxDiff;
     if (diff > maxDiff)
     {
         m_diffBuffer = std::min<uint32>(sWorld.getConfig(CONFIG_UINT32_UPDATE_STEADY_BUFFER), m_diffBuffer + diff - maxDiff);
