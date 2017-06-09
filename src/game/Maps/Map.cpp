@@ -94,7 +94,7 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId)
       m_updateFinished(false), m_updateDiffMod(0), m_GridActivationDistance(DEFAULT_VISIBILITY_DISTANCE),
       _lastPlayersUpdate(WorldTimer::getMSTime()), _lastMapUpdate(WorldTimer::getMSTime()),
       _lastCellsUpdate(WorldTimer::getMSTime()), _inactivePlayersSkippedUpdates(0),
-      _objUpdatesThreads(0), _unitRelocationThreads(0), _lastPlayerLeftTime(0)
+      _objUpdatesThreads(0), _unitRelocationThreads(0), _lastPlayerLeftTime(0), m_diffBuffer(0)
 {
     m_CreatureGuids.Set(sObjectMgr.GetFirstTemporaryCreatureLowGuid());
     m_GameObjectGuids.Set(sObjectMgr.GetFirstTemporaryGameObjectLowGuid());
@@ -850,7 +850,17 @@ void Map::DoUpdate(uint32 maxDiff)
     uint32 now = WorldTimer::getMSTime();
     uint32 diff = WorldTimer::getMSTimeDiff(_lastMapUpdate, now);
     if (diff > maxDiff)
+    {
+        m_diffBuffer = std::min<uint32>(sWorld.getConfig(CONFIG_UINT32_UPDATE_STEADY_BUFFER), m_diffBuffer + diff - maxDiff);
         diff = maxDiff;
+    }
+    else if (m_diffBuffer)
+    {
+        uint32 ddiff = std::min(maxDiff - diff, m_diffBuffer);
+        diff += ddiff;
+        m_diffBuffer -= ddiff;
+    }
+
     _lastMapUpdate = now;
     if (HavePlayers())
         _lastPlayerLeftTime = now;
