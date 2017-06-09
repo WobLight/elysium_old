@@ -3582,7 +3582,8 @@ Spell* Unit::FindCurrentSpellBySpellId(uint32 spell_id) const
 
 void Unit::SetInFront(Unit const* target)
 {
-    SetOrientation(GetAngle(target));
+    if (!HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_ROTATE))
+        SetOrientation(GetAngle(target));
 }
 
 void Unit::SetFacingTo(float ori)
@@ -5419,28 +5420,27 @@ ReputationRank Unit::GetReactionTo(Unit const* target) const
                 && target->GetByteValue(UNIT_FIELD_BYTES_2, 1) & UNIT_BYTE2_FLAG_FFA_PVP)
                 return REP_HOSTILE;
             */
-
-            if (selfPlayerOwner)
+        }
+        if (selfPlayerOwner)
+        {
+            if (FactionTemplateEntry const* targetFactionTemplateEntry = target->getFactionTemplateEntry())
             {
-                if (FactionTemplateEntry const* targetFactionTemplateEntry = target->getFactionTemplateEntry())
+                if (ReputationRank const* repRank = selfPlayerOwner->GetReputationMgr().GetForcedRankIfAny(targetFactionTemplateEntry))
+                    return *repRank;
+                if (FactionEntry const* targetFactionEntry = sFactionStore.LookupEntry(targetFactionTemplateEntry->faction))
                 {
-                    if (ReputationRank const* repRank = selfPlayerOwner->GetReputationMgr().GetForcedRankIfAny(targetFactionTemplateEntry))
-                        return *repRank;
-                    if (FactionEntry const* targetFactionEntry = sFactionStore.LookupEntry(targetFactionTemplateEntry->faction))
+                    if (targetFactionEntry->CanHaveReputation())
                     {
-                        if (targetFactionEntry->CanHaveReputation())
-                        {
-                            // check contested flags
-                            if (targetFactionTemplateEntry->factionFlags & FACTION_TEMPLATE_FLAG_CONTESTED_GUARD
-                                    && selfPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
-                                return REP_HOSTILE;
+                        // check contested flags
+                        if (targetFactionTemplateEntry->factionFlags & FACTION_TEMPLATE_FLAG_CONTESTED_GUARD
+                            && selfPlayerOwner->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
+                            return REP_HOSTILE;
 
-                            // if faction has reputation, hostile state depends only from AtWar state
-                            if (FactionState const* factionState = selfPlayerOwner->GetReputationMgr().GetState(targetFactionEntry))
-                                if (factionState->Flags & FACTION_FLAG_AT_WAR)
-                                    return REP_HOSTILE;
-                            return REP_FRIENDLY;
-                        }
+                        // if faction has reputation, hostile state depends only from AtWar state
+                        if (FactionState const* factionState = selfPlayerOwner->GetReputationMgr().GetState(targetFactionEntry))
+                            if (factionState->Flags & FACTION_FLAG_AT_WAR)
+                                return REP_HOSTILE;
+                        return REP_FRIENDLY;
                     }
                 }
             }
@@ -9709,7 +9709,7 @@ void Unit::UpdateReactives(uint32 p_time)
     }
 }
 
-Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /*= ATTACK_DISTANCE*/) const
+Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /*= ATTACK_DISTANCE*/, bool inFront) const
 {
     std::list<Unit *> targets;
 
@@ -9724,7 +9724,7 @@ Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /
     // remove not LoS targets
     for (std::list<Unit *>::iterator tIter = targets.begin(); tIter != targets.end();)
     {
-        if (!IsWithinLOSInMap(*tIter))
+        if ((!IsWithinLOSInMap(*tIter)) || (inFront && !this->HasInArc(M_PI_F / 2, *tIter)))
         {
             std::list<Unit *>::iterator tIter2 = tIter;
             ++tIter;

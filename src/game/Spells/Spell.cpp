@@ -706,9 +706,9 @@ void Spell::prepareDataForTriggerSystem()
             }
             else // Ranged spell attack
             {
-                // If blind, don't add proc flags for typical ranged abilities
+                // If blind or Expose Weakness, don't add proc flags for typical ranged abilities
                 // proc none
-                if (m_spellInfo->Id == 2094) {
+                if (m_spellInfo->Id == 2094 || m_spellInfo->Id == 23577) {
                     m_procAttacker = PROC_FLAG_NONE;
                     m_procVictim = PROC_FLAG_NONE;
                 }
@@ -2828,12 +2828,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case SPELL_EFFECT_SKIN_PLAYER_CORPSE:
                     if (m_targets.getUnitTarget())
                         targetUnitMap.push_back(m_targets.getUnitTarget());
-                    else if (m_targets.getCorpseTargetGuid())
-                    {
-                        if (Corpse *corpse = m_caster->GetMap()->GetCorpse(m_targets.getCorpseTargetGuid()))
-                            if (Player* owner = ObjectAccessor::FindPlayer(corpse->GetOwnerGuid()))
-                                targetUnitMap.push_back(owner);
-                    }
                     break;
                 case SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER:
                     if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION))
@@ -4496,9 +4490,15 @@ void Spell::TakeReagents()
 
 void Spell::TakeAmmo()
 {
-    // Blind is a ranged attack but should not take any ammo
-    if (m_spellInfo->Id == 2094)
-        return;
+    // Some ranged attacks dont take any ammo
+    switch (m_spellInfo->Id)
+    {
+        case 2094:  // Blind
+        case 13099: // Net-o-Matic
+        case 13119: // Net-o-Matic
+        case 23577: // Expose Weakness
+            return;
+    }
             
     if (m_attackType == RANGED_ATTACK && m_caster->GetTypeId() == TYPEID_PLAYER)
     {
@@ -4711,7 +4711,12 @@ SpellCastResult Spell::CheckCast(bool strict)
 
     // check death state to prevent cheating ("deathbug")
     if (!m_caster->isAlive() && !(m_spellInfo->Attributes & SPELL_ATTR_PASSIVE) && !((m_spellInfo->Attributes & SPELL_ATTR_CASTABLE_WHILE_DEAD) || (m_IsTriggeredSpell && !m_triggeredByAuraSpell)))
-        return SPELL_FAILED_CASTER_DEAD;
+    {
+        if (m_triggeredByAuraSpell)
+            return SPELL_FAILED_DONT_REPORT;
+        else
+            return SPELL_FAILED_CASTER_DEAD;
+    }
 
     // check global cooldown
     if (!m_IsTriggeredSpell)
@@ -4900,7 +4905,12 @@ SpellCastResult Spell::CheckCast(bool strict)
                         return SPELL_FAILED_NO_PET;
                 }
                 else if (!pet->isAlive())
-                    return SPELL_FAILED_TARGETS_DEAD;
+                {
+                    if (m_triggeredByAuraSpell)
+                        return SPELL_FAILED_DONT_REPORT;
+                    else
+                        return SPELL_FAILED_TARGETS_DEAD;
+                }
                 else if (!(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_IGNORE_LOS) && !pet->IsWithinLOSInMap(m_caster))
                     return SPELL_FAILED_LINE_OF_SIGHT;
                 break;
