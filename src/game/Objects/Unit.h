@@ -838,6 +838,7 @@ struct CharmInfo
     bool IsReturning();
     void SaveStayPosition();
     void GetStayPosition(float &x, float &y, float &z);
+    ThreatList &threatList();
 private:
 
     Unit* m_unit;
@@ -847,6 +848,7 @@ private:
     CommandStates   m_CommandState;
     ReactStates     m_reactState;
     uint32          m_petnumber;
+    ThreatList      m_threatList;
 
     bool _isCommandAttack;
     bool _isCommandFollow;

@@ -500,6 +500,11 @@ void ThreatManager::setCurrentVictim(HostileReference* pHostileReference)
     iCurrentVictim = pHostileReference;
 }
 
+void ThreatManager::swapThreatList(ThreatList &list)
+{
+    std::swap(iThreatContainer.iThreatList, list);
+}
+
 //============================================================
 // The hated unit is gone, dead or deleted
 // return true, if the event is consumed
