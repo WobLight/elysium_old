@@ -2591,8 +2591,6 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
     else
         return;
 
-    Camera& camera = p_caster->GetCamera();
-
     if (apply)
     {
         target->addUnitState(UNIT_STAT_CONTROLLED);
@@ -2659,24 +2657,18 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
 
         target->DeleteThreatList();
 
-        target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-        if (!target->GetAffectingPlayer())
-            target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+        target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED | UNIT_FLAG_PVP_ATTACKABLE);
 
         target->SetCharmerGuid(ObjectGuid());
 
         if (target->GetTypeId() == TYPEID_PLAYER)
         {
             Player* p_target = ((Player*)target);
-            p_target->setFactionForRace(target->getRace());
             p_target->RemoveAI();
             p_target->RelocateToLastClientPosition(); // Movement interpolation - prevent undermap.
         }
-        else if (target->GetTypeId() == TYPEID_UNIT)
-        {
-            CreatureInfo const *cinfo = ((Creature*)target)->GetCreatureInfo();
-            target->setFaction(cinfo->faction_A);
-        }
+
+        target->RestoreFaction();
         target->StopMoving();
         target->UpdateControl();
 
