@@ -2675,10 +2675,7 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
         if (Creature* pCreature = target->ToCreature())
         {
             if (pCreature->AI() && pCreature->AI()->SwitchAiAtControl())
-            {
                 pCreature->AIM_Initialize();
-                pCreature->AI()->AttackStart(caster);
-            }
 
             pCreature->AttackedBy(caster);
         }
