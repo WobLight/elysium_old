@@ -2571,6 +2571,7 @@ void Aura::HandleModPossess(bool apply, bool Real)
     if (!caster || !target)
         return;
     caster->ModPossess(target, apply, m_removeMode);
+    target->AddThreat(caster,target->GetHealth(), false, GetSpellSchoolMask(GetSpellProto()));
 }
 
 void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
@@ -2607,7 +2608,6 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
         p_caster->SetMover(target);
 
         target->CombatStop(true);
-        target->DeleteThreatList();
 
         if (CharmInfo *charmInfo = target->InitCharmInfo(target))
         {
@@ -2654,8 +2654,6 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
             return;
 
         target->clearUnitState(UNIT_STAT_CONTROLLED);
-
-        target->DeleteThreatList();
 
         target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED | UNIT_FLAG_PVP_ATTACKABLE);
 
