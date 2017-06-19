@@ -346,7 +346,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         Creature *caster = (Creature*)mover;
         if (!(
                     caster->hasUnitState(UNIT_STAT_CONTROLLED) &&
-                    caster->GetCharmer()->HasSpell(spellId) ||
+                    caster->GetCharmer() && caster->GetCharmer()->HasSpell(spellId) ||
                     caster->HasSpell(spellId)
                     ) || IsPassiveSpell(spellInfo))
         {
