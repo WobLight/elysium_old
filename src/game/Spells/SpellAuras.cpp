@@ -2668,7 +2668,7 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
 
         target->RestoreFaction();
         target->CombatStop(true);
-        target->StopMoving();
+        target->StopMoving(true);
         target->UpdateControl();
 
         if (Creature* pCreature = target->ToCreature())
