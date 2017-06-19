@@ -2622,8 +2622,8 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
             if (pTargetCrea->AI()->SwitchAiAtControl())
                 pTargetCrea->AIM_Initialize();
 
-        if (Player* p_target = target->ToPlayer())
-                p_target->SetControlledBy(caster);
+        if (target->IsPlayer() && !caster->IsPlayer())
+                target->ToPlayer()->SetControlledBy(caster);
         // Les mobs doivent attaquer celui qui est CM.
         // On appelle donc 'MoveInLineOfSight' pour les mobs a cote.
         target->ScheduleAINotify(0);
