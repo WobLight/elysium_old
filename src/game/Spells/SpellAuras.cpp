@@ -2607,13 +2607,13 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
         p_caster->SetMover(target);
 
         target->CombatStop(true);
+        target->DeleteThreatList();
 
         if (CharmInfo *charmInfo = target->InitCharmInfo(target))
         {
             charmInfo->InitPossessCreateSpells();
             charmInfo->SetReactState(REACT_PASSIVE);
             charmInfo->SetCommandState(COMMAND_STAY);
-            target->getThreatManager().swapThreatList(charmInfo->threatList());
         }
 
         p_caster->PossessSpellInitialize();
@@ -2679,7 +2679,6 @@ void Unit::ModPossess(Unit* target, bool apply, AuraRemoveMode m_removeMode)
 
             pCreature->AttackedBy(caster);
         }
-        target->getThreatManager().swapThreatList(target->GetCharmInfo()->threatList());
     }
     target->SetUnitMovementFlags(MOVEFLAG_NONE);
 }

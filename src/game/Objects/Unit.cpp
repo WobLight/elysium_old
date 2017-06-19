@@ -9115,11 +9115,6 @@ void CharmInfo::GetStayPosition(float &x, float &y, float &z)
     z = _stayZ;
 }
 
-ThreatList &CharmInfo::threatList()
-{
-    return m_threatList;
-}
-
 void CharmInfo::SetIsAtStay(bool val)
 {
     _isAtStay = val;

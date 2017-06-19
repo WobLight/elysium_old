@@ -213,8 +213,6 @@ public:
 
     // Don't must be used for explicit modify threat values in iterator return pointers
     ThreatList const& getThreatList() const { return iThreatContainer.getThreatList(); }
-
-    void swapThreatList(ThreatList &list);
 private:
     HostileReference* iCurrentVictim;
     Unit* iOwner;
