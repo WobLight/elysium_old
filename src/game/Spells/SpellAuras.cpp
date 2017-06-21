@@ -4975,7 +4975,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 float dmg = ticks[GetAuraTicks() -1];
                 float ddone = ticks[GetAuraTicks()];
                 pdamage *= 6;
-                pdamage = std::round(pdamage * ddone - pdamage * dmg);
+                pdamage = std::round(std::round(pdamage * ddone) - pdamage * dmg);
             }
 
 
