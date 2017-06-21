@@ -4968,6 +4968,16 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                     pdamage += (pdamage + 1) / 2;       // +1 prevent 0.5 damage possible lost at 1..4 ticks
                 // 5..8 ticks have normal tick damage
             }
+            if (spellProto->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_STARSHARDS>())
+            {
+                //ticks: .12/.12/.165/.165/.215/.215
+                float ticks[] = {0,.12,.24,.405,.57,.785,1};
+                float dmg = ticks[GetAuraTicks() -1];
+                float ddone = ticks[GetAuraTicks()];
+                pdamage *= 6;
+                pdamage = std::round(pdamage * ddone - pdamage * dmg);
+            }
+
 
             target->CalculateDamageAbsorbAndResist(pCaster, GetSpellSchoolMask(spellProto), DOT, pdamage, &absorb, &resist, spellProto);
 
