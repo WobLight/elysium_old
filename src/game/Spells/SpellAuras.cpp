@@ -4970,8 +4970,8 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             }
             if (spellProto->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_STARSHARDS>())
             {
-                //ticks: .12/.12/.165/.165/.215/.215
-                float ticks[] = {0,.12,.24,.405,.57,.785,1};
+                //ticks: 2/3, 2/3, 1, 1, 4/3, 4/3
+                float ticks[] = {0,.111,.222,.389,.556,.778,1};
                 float dmg = ticks[GetAuraTicks() -1];
                 float ddone = ticks[GetAuraTicks()];
                 pdamage *= 6;
