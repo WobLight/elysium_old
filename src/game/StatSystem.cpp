@@ -141,7 +141,7 @@ void Player::UpdateArmor()
     {
         Modifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue & SPELL_SCHOOL_MASK_NORMAL)
-            value += int32(GetStat(STAT_INTELLECT) * mod->m_amount / 100.0f);
+            value += int32(GetStat(STAT_INTELLECT) * mod->total() / 100.0f);
     }
 
     // add dummy effects from spells (check class and other conditions first for optimization)
@@ -158,7 +158,7 @@ void Player::UpdateArmor()
                 {
                     float enrageModifier = 0.0f;
                     enrageModifier = GetModifierValue(unitMod, BASE_VALUE);
-                    enrageModifier *= (*itr)->GetModifier()->m_amount / 100.0f;
+                    enrageModifier *= (*itr)->GetModifier()->total() / 100.0f;
                     value += enrageModifier;
                     break;
                 }
@@ -303,7 +303,7 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
                             // Predatory Strikes
                             if ((*itr)->GetSpellProto()->SpellIconID == 1563)
                             {
-                                mLevelMult = (*itr)->GetModifier()->m_amount / 100.0f;
+                                mLevelMult = (*itr)->GetModifier()->total() / 100.0f;
                                 break;
                             }
                         }

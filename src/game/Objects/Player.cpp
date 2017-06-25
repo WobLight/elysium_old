@@ -957,7 +957,7 @@ int32 Player::getMaxTimer(MirrorTimerType timer)
             int32 UnderWaterTime = sWorld.getConfig(CONFIG_UINT32_TIMERBAR_BREATH_MAX) * IN_MILLISECONDS;
             AuraList const& mModWaterBreathing = GetAurasByType(SPELL_AURA_MOD_WATER_BREATHING);
             for (AuraList::const_iterator i = mModWaterBreathing.begin(); i != mModWaterBreathing.end(); ++i)
-                UnderWaterTime = uint32(UnderWaterTime * (100.0f + (*i)->GetModifier()->m_amount) / 100.0f);
+                UnderWaterTime = uint32(UnderWaterTime * (100.0f + (*i)->GetModifier()->total()) / 100.0f);
             return UnderWaterTime;
         }
         case FIRE_TIMER:
@@ -2263,7 +2263,7 @@ void Player::Regenerate(Powers power)
         AuraList const& ModPowerRegenPCTAuras = GetAurasByType(SPELL_AURA_MOD_POWER_REGEN_PERCENT);
         for (AuraList::const_iterator i = ModPowerRegenPCTAuras.begin(); i != ModPowerRegenPCTAuras.end(); ++i)
             if ((*i)->GetModifier()->m_miscvalue == int32(power))
-                addvalue *= ((*i)->GetModifier()->m_amount + 100) / 100.0f;
+                addvalue *= ((*i)->GetModifier()->total() + 100) / 100.0f;
     }
 
     if (power != POWER_RAGE)
@@ -2304,7 +2304,7 @@ void Player::RegenerateHealth()
         {
             AuraList const& mModHealthRegenPct = GetAurasByType(SPELL_AURA_MOD_HEALTH_REGEN_PERCENT);
             for (AuraList::const_iterator i = mModHealthRegenPct.begin(); i != mModHealthRegenPct.end(); ++i)
-                addvalue *= (100.0f + (*i)->GetModifier()->m_amount) / 100.0f;
+                addvalue *= (100.0f + (*i)->GetModifier()->total()) / 100.0f;
         }
         else if (HasAuraType(SPELL_AURA_MOD_REGEN_DURING_COMBAT))
             addvalue *= GetTotalAuraModifier(SPELL_AURA_MOD_REGEN_DURING_COMBAT) / 100.0f;
@@ -6704,7 +6704,7 @@ void Player::_ApplyWeaponDependentAuraCritMod(Item *item, WeaponAttackType attac
     }
 
     if (item->IsFitToSpellRequirements(aura->GetSpellProto()))
-        HandleBaseModValue(mod, FLAT_MOD, float(aura->GetModifier()->m_amount), apply);
+        HandleBaseModValue(mod, FLAT_MOD, float(aura->GetModifier()->total()), apply);
 }
 
 void Player::_ApplyWeaponDependentAuraDamageMod(Item *item, WeaponAttackType attackType, Aura* aura, bool apply)
@@ -6748,7 +6748,7 @@ void Player::_ApplyWeaponDependentAuraDamageMod(Item *item, WeaponAttackType att
     }
 
     if (item->IsFitToSpellRequirements(aura->GetSpellProto()))
-        HandleStatModifier(unitMod, unitModType, float(modifier->m_amount), apply);
+        HandleStatModifier(unitMod, unitModType, float(modifier->total()), apply);
 }
 
 void Player::ApplyItemEquipSpell(Item *item, bool apply, bool form_change)
@@ -14582,7 +14582,7 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
     for (int i = UNIT_FIELD_AURA; i <= UNIT_FIELD_AURASTATE; ++i)
         SetUInt32Value(i, 0);
 
-    //QueryResult *result = CharacterDatabase.PQuery("SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM character_aura WHERE guid = '%u'",GetGUIDLow());
+    //QueryResult *result = CharacterDatabase.PQuery("SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, used0, used1, used2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM character_aura WHERE guid = '%u'",GetGUIDLow());
 
     if (result)
     {
@@ -14598,13 +14598,16 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
 
             for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             {
-                s.damage[i] = fields[i + 5].GetInt32();
-                s.periodicTime[i] = fields[i + 8].GetUInt32();
+                s.base[i] = fields[i + 5].GetInt32();
+                s.bonus[i] = fields[i + 8].GetInt32();
+                s.bonus_pct[i] = fields[i + 11].GetFloat();
+                s.used[i] = fields[i + 14].GetInt32();
+                s.periodicTime[i] = fields[i + 17].GetUInt32();
             }
 
-            s.maxduration = fields[11].GetInt32();
-            s.remaintime = fields[12].GetInt32();
-            s.effIndexMask = fields[13].GetUInt32();
+            s.maxduration = fields[20].GetInt32();
+            s.remaintime = fields[21].GetInt32();
+            s.effIndexMask = fields[22].GetUInt32();
 
             LoadAura(s, timediff);
         }
@@ -14655,10 +14658,15 @@ void Player::LoadAura(AuraSaveStruct& s, uint32 timediff)
             continue;
 
         Aura* aura = CreateAura(spellproto, SpellEffectIndex(i), NULL, holder, this);
-        if (!s.damage[i])
-            s.damage[i] = aura->GetModifier()->m_amount;
+        if (!s.base[i])
+        {
+            s.base[i] = aura->GetModifier()->m_base;
+            s.bonus[i] = aura->GetModifier()->m_bonus;
+            s.bonus_pct[i] = aura->GetModifier()->m_bonus_pct;
+            s.used[i] = aura->GetModifier()->m_used;
+        }
 
-        aura->SetLoadedState(s.damage[i], s.periodicTime[i]);
+        aura->SetLoadedState(s.base[i], s.bonus[i], s.bonus_pct[i], s.used[i], s.periodicTime[i]);
         holder->AddAura(aura, SpellEffectIndex(i));
     }
 
@@ -15591,6 +15599,48 @@ void Player::SaveGoldToDB()
     stmt.PExecute(GetMoney(), GetGUIDLow());
 }
 
+void Player::ApplySpellMod(uint32 spellId, SpellModOp op, Modifier *basevalue, Spell* spell)
+{
+    SpellEntry const *spellInfo = sSpellMgr.GetSpellEntry(spellId);
+    if (!spellInfo) return;
+    int32 totalpct = 0;
+    int32 totalflat = 0;
+    for (SpellModList::iterator itr = m_spellMods[op].begin(); itr != m_spellMods[op].end(); ++itr)
+    {
+        SpellModifier *mod = *itr;
+
+        if (!IsAffectedBySpellmod(spellInfo,mod,spell))
+            continue;
+
+        if (mod->type == SPELLMOD_FLAT)
+            totalflat += mod->value;
+        else if (mod->type == SPELLMOD_PCT)
+        {
+            // skip percent mods for null basevalue (most important for spell mods with charges )
+            if(basevalue->total() == 0)
+                continue;
+
+            // special case (skip >10sec spell casts for instant cast setting)
+            if( mod->op==SPELLMOD_CASTING_TIME  && basevalue->total() >= 10*IN_MILLISECONDS && mod->value <= -100)
+                continue;
+
+            totalpct += mod->value;
+        }
+
+        DropModCharge(mod, spell);
+
+        // Nostalrius : fix ecorce (22812 - +1sec incant) + rapidite nature (17116 - sorts instant) = 0sec de cast
+        if (mod->op == SPELLMOD_CASTING_TIME && mod->type == SPELLMOD_PCT && mod->value == -100)
+        {
+            totalpct = -100;
+            totalflat = 0;
+            break;
+        }
+    }
+
+    basevalue->m_bonus += (float)basevalue->total()*(float)totalpct/100.0f + (float)totalflat;
+}
+
 void Player::_SaveAuras()
 {
     static SqlStatementID deleteAuras ;
@@ -15605,8 +15655,8 @@ void Player::_SaveAuras()
         return;
 
     stmt = CharacterDatabase.CreateStatement(insertAuras, "INSERT INTO character_aura (guid, caster_guid, item_guid, spell, stackcount, remaincharges, "
-            "basepoints0, basepoints1, basepoints2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, used0, used1, used2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     AuraSaveStruct s;
     for (SpellAuraHolderMap::const_iterator itr = auraHolders.begin(); itr != auraHolders.end(); ++itr)
@@ -15624,7 +15674,13 @@ void Player::_SaveAuras()
         stmt.addUInt8(s.remaincharges);
 
         for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-            stmt.addInt32(s.damage[i]);
+            stmt.addInt32(s.base[i]);
+        for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+            stmt.addInt32(s.bonus[i]);
+        for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+            stmt.addFloat(s.bonus_pct[i]);
+        for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+            stmt.addInt32(s.used[i]);
 
         for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             stmt.addUInt32(s.periodicTime[i]);
@@ -15650,7 +15706,10 @@ bool Player::SaveAura(SpellAuraHolder* holder, AuraSaveStruct& saveStruct)
 
         for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         {
-            saveStruct.damage[i] = 0;
+            saveStruct.base[i] = 0;
+            saveStruct.bonus[i] = 0;
+            saveStruct.bonus_pct[i] = 1;
+            saveStruct.used[i] = 0;
             saveStruct.periodicTime[i] = 0;
 
             if (Aura *aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
@@ -15659,7 +15718,10 @@ bool Player::SaveAura(SpellAuraHolder* holder, AuraSaveStruct& saveStruct)
                 if (aur->IsAreaAura() && holder->GetCasterGuid() != GetObjectGuid())
                     return false;
 
-                saveStruct.damage[i] = aur->GetModifier()->m_amount;
+                saveStruct.base[i] = aur->GetModifier()->m_base;
+                saveStruct.bonus[i] = aur->GetModifier()->m_bonus;
+                saveStruct.bonus_pct[i] = aur->GetModifier()->m_bonus_pct;
+                saveStruct.used[i] = aur->GetModifier()->m_used;
                 saveStruct.periodicTime[i] = aur->GetModifier()->periodictime;
                 saveStruct.effIndexMask |= (1 << i);
             }

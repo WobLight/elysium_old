@@ -1665,11 +1665,15 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         int32 SpellBaseDamageBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask);
         uint32 SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1, Spell* spell = nullptr);
+        void SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, Modifier *pdamage, DamageEffectType damagetype, uint32 stack = 1, Spell* spell = nullptr);
         uint32 SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1, Spell* spell = nullptr);
         int32 SpellBaseHealingBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseHealingBonusTaken(SpellSchoolMask schoolMask);
+        void SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Modifier *healamount, DamageEffectType damagetype, uint32 stack = 1, Spell* spell = nullptr);
         uint32 SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack = 1, Spell* spell = nullptr);
         uint32 SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack = 1, Spell* spell = nullptr);
+        void MeleeDamageBonusDone(Unit *pVictim, Modifier *damage, WeaponAttackType attType,
+            SpellEntry const *spellProto = nullptr, DamageEffectType damagetype = DIRECT_DAMAGE, uint32 stack = 1, Spell* spell = nullptr, bool flat = true);
         uint32 MeleeDamageBonusDone(Unit *pVictim, uint32 damage, WeaponAttackType attType,
             SpellEntry const *spellProto = nullptr, DamageEffectType damagetype = DIRECT_DAMAGE, uint32 stack = 1, Spell* spell = nullptr, bool flat = true);
         uint32 MeleeDamageBonusTaken(Unit *pCaster, uint32 pdamage,WeaponAttackType attType,

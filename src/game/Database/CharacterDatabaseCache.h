@@ -30,6 +30,9 @@ struct PetAuraCache
     uint32 effIndexMask;
 
     int32 basepoints[3];
+    int32 bonus[3];
+    float bonus_pct[3];
+    int32 used[3];
     uint32 periodictime[3];
 };
 typedef std::vector<PetAuraCache> PetAuras;

@@ -1673,7 +1673,7 @@ float Creature::GetAttackDistance(Unit const* pl) const
     AuraList const& nModDetectRange = GetAurasByType(SPELL_AURA_MOD_DETECT_RANGE);
     for (AuraList::const_iterator i = nModDetectRange.begin(); i != nModDetectRange.end(); ++i)
         if ((*i)->GetSpellProto()->MaxTargetLevel >= getLevel())
-            RetDistance += (*i)->GetModifier()->m_amount;
+            RetDistance += (*i)->GetModifier()->total();
 
     // detected range auras
     RetDistance += pl->GetTotalAuraModifier(SPELL_AURA_MOD_DETECTED_RANGE);

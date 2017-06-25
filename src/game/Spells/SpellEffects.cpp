@@ -1494,7 +1494,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     {
                         // only Imp. Life Tap have this in combination with dummy aura
                         if ((*itr)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_WARLOCK && (*itr)->GetSpellProto()->SpellIconID == 208)
-                            mana = ((*itr)->GetModifier()->m_amount + 100) * mana / 100;
+                            mana = ((*itr)->GetModifier()->total() + 100) * mana / 100;
                     }
 
                     m_caster->CastCustomSpell(m_caster, 31818, &mana, nullptr, nullptr, true, nullptr);
@@ -2217,7 +2217,7 @@ void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
                 idx++;
             }
 
-            int32 tickheal = targetAura->GetModifier()->m_amount;
+            int32 tickheal = targetAura->GetModifier()->total();
             int32 tickcount = 0;
             // Regrowth : 0x40
             // "18 sec of Regrowth" -> 6 ticks
@@ -3967,7 +3967,7 @@ void Spell::EffectHealMaxHealth(SpellEffectIndex /*eff_idx*/)
     // Healing done percent
     std::list <Aura*> const& mHealingDonePct = m_caster->GetAurasByType(SPELL_AURA_MOD_HEALING_DONE_PERCENT);
     for (std::list <Aura*>::const_iterator i = mHealingDonePct.begin(); i != mHealingDonePct.end(); ++i)
-        DoneTotalMod *= (100.0f + (*i)->GetModifier()->m_amount) / 100.0f;
+        DoneTotalMod *= (100.0f + (*i)->GetModifier()->total()) / 100.0f;
 
     heal *= DoneTotalMod;
 

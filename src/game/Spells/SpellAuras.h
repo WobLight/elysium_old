@@ -29,9 +29,15 @@
 struct Modifier
 {
     AuraType m_auraname;
-    int32 m_amount;
+    int32 m_base;
+    int32 m_bonus;
+    float m_bonus_pct;
+    int32 m_used;
     int32 m_miscvalue;
     uint32 periodictime;
+
+    int32 total(float base_coeff=1) const { return std::round((m_base * base_coeff + m_bonus) * m_bonus_pct); }
+    int32 remaning() const { return total() - m_used; }
 };
 
 struct HeartBeatData
@@ -414,9 +420,12 @@ class MANGOS_DLL_SPEC Aura
         uint32 GetStackAmount() const { return GetHolder()->GetStackAmount(); }
 
         void CalculatePeriodic(Player * modOwner, bool create);
-        void SetLoadedState(int32 damage, uint32 periodicTime)
+        void SetLoadedState(int32 base, int32 bonus, float pct, int32 used, uint32 periodicTime)
         {
-            m_modifier.m_amount = damage;
+            m_modifier.m_base = base;
+            m_modifier.m_bonus = bonus;
+            m_modifier.m_bonus_pct = pct;
+            m_modifier.m_used = used;
             m_modifier.periodictime = periodicTime;
 
             if(uint32 maxticks = GetAuraMaxTicks())

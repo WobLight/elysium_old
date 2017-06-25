@@ -412,7 +412,7 @@ SpellAuraProcResult Unit::HandleHasteAuraProc(Unit *pVictim, uint32 damage, Aura
 SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const * procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
 {
     SpellEntry const *dummySpell = triggeredByAura->GetSpellProto();
-    int32  triggerAmount = triggeredByAura->GetModifier()->m_amount;
+    int32  triggerAmount = triggeredByAura->GetModifier()->total();
 
     Item* castItem = triggeredByAura->GetCastItemGuid() && GetTypeId() == TYPEID_PLAYER
                      ? ((Player*)this)->GetItemByGuid(triggeredByAura->GetCastItemGuid()) : NULL;
@@ -525,8 +525,8 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
 
                     if (GetSchoolMask(procSpell->School) == SPELL_SCHOOL_MASK_FROST)
                     {
-                        ++triggeredByAura->GetModifier()->m_amount;
-                        triggerAmount = triggeredByAura->GetModifier()->m_amount;
+                        ++triggeredByAura->GetModifier()->total();
+                        triggerAmount = triggeredByAura->GetModifier()->total();
 
                         if (triggerAmount == 100)
                             triggered_spell_id = 26034; // Slowed
@@ -549,8 +549,8 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                             return SPELL_AURA_PROC_FAILED;
                     }
 
-                    ++triggeredByAura->GetModifier()->m_amount;
-                    triggerAmount = triggeredByAura->GetModifier()->m_amount;
+                    ++triggeredByAura->GetModifier()->m_base;
+                    triggerAmount = triggeredByAura->GetModifier()->total();
 
                     if (triggerAmount == 50)
                         MonsterTextEmote(-1531044, NULL); // Cracks
@@ -722,7 +722,7 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                         Modifier *igniteModifier = igniteAura->GetModifier();
                         SpellAuraHolder* igniteHolder = igniteAura->GetHolder();
                         
-                        int32 tickDamage = igniteModifier->m_amount;
+                        int32 tickDamage = igniteModifier->m_base;
                         
                         bool notAtMaxStack = igniteAura->GetStackAmount() < 5;
                         
@@ -737,7 +737,7 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                                 igniteHolder->ModStackAmount(1);
                                 
                                 // Update DOT damage
-                                igniteModifier->m_amount = tickDamage;
+                                igniteModifier->m_base = tickDamage;
                                 igniteAura->ApplyModifier(true, true, false);
                             }
                             else
@@ -1099,7 +1099,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
     SpellEntry const* auraSpellInfo = triggeredByAura->GetSpellProto();
 
     // Basepoints of trigger aura
-    int32 triggerAmount = triggeredByAura->GetModifier()->m_amount;
+    int32 triggerAmount = triggeredByAura->GetModifier()->total();
 
     // Set trigger spell id, target, custom basepoints
     uint32 trigger_spell_id = auraSpellInfo->EffectTriggerSpell[triggeredByAura->GetEffIndex()];
@@ -1492,9 +1492,9 @@ SpellAuraProcResult Unit::HandleProcTriggerDamageAuraProc(Unit *pVictim, uint32 
 {
     SpellEntry const *spellInfo = triggeredByAura->GetSpellProto();
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "ProcDamageAndSpell: doing %u damage from spell id %u (triggered by auratype %u of spell %u)",
-                     triggeredByAura->GetModifier()->m_amount, spellInfo->Id, triggeredByAura->GetModifier()->m_auraname, triggeredByAura->GetId());
+                     triggeredByAura->GetModifier()->total(), spellInfo->Id, triggeredByAura->GetModifier()->m_auraname, triggeredByAura->GetId());
     SpellNonMeleeDamage damageInfo(this, pVictim, spellInfo->Id, SpellSchools(spellInfo->School));
-    CalculateSpellDamage(&damageInfo, triggeredByAura->GetModifier()->m_amount, spellInfo);
+    CalculateSpellDamage(&damageInfo, triggeredByAura->GetModifier()->total(), spellInfo);
     damageInfo.target->CalculateAbsorbResistBlock(this, &damageInfo, spellInfo);
     DealDamageMods(damageInfo.target, damageInfo.damage, &damageInfo.absorb);
     SendSpellNonMeleeDamageLog(&damageInfo);
@@ -1513,7 +1513,7 @@ SpellAuraProcResult Unit::HandleOverrideClassScriptAuraProc(Unit *pVictim, uint3
                      ? ((Player*)this)->GetItemByGuid(triggeredByAura->GetCastItemGuid()) : NULL;
 
     // Basepoints of trigger aura
-    int32 triggerAmount = triggeredByAura->GetModifier()->m_amount;
+    int32 triggerAmount = triggeredByAura->GetModifier()->total();
 
     uint32 triggered_spell_id = 0;
 
