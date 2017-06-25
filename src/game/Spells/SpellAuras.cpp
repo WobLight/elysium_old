@@ -4942,9 +4942,12 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             }
 
             if (!sProto)
-                amount = m_modifier.total(base_coeff) > 0 ? m_modifier.total(base_coeff) : 0;
+                amount = m_modifier.total(base_coeff);
             else
                 amount = data * base_coeff;
+
+            if (amount < 0)
+                amount = 0;
 
             uint32 pdamage;
 
