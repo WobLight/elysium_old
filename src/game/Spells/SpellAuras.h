@@ -36,7 +36,7 @@ struct Modifier
     int32 m_miscvalue;
     uint32 periodictime;
 
-    int32 total(float base_coeff=1) const { return std::round((m_base * base_coeff + m_bonus) * m_bonus_pct); }
+    int32 total(float base_coeff=1) const { return (m_base * base_coeff + m_bonus) * m_bonus_pct; }
     int32 remaning() const { return total() - m_used; }
 };
 
