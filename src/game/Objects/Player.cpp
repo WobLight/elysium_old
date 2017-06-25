@@ -13292,7 +13292,7 @@ void Player::GroupEventFailHappens(uint32 questId)
         for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
             Player* pGroupGuy = itr->getSource();
-            
+
             // Fail regardless of distance
             if (pGroupGuy && pGroupGuy->GetQuestStatus(questId) == QUEST_STATUS_INCOMPLETE)
                 pGroupGuy->FailQuest(questId);
@@ -15638,7 +15638,7 @@ void Player::ApplySpellMod(uint32 spellId, SpellModOp op, Modifier *basevalue, S
         }
     }
 
-    basevalue->m_bonus += (float)basevalue->total()*(float)totalpct/100.0f + (float)totalflat;
+    basevalue->m_bonus += (basevalue->total()*totalpct/100.0f + totalflat)/basevalue->m_bonus_pct;
 }
 
 void Player::_SaveAuras()
