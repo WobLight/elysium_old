@@ -375,4 +375,12 @@ bool IsIPAddress(char const* ipaddress);
 uint32 CreatePIDFile(const std::string& filename);
 
 void hexEncodeByteArray(uint8* bytes, uint32 arrayLen, std::string& result);
+
+template <class T = int32>
+T dither(float v)
+{
+    float r;
+    return frand(0,1) > std::modf(v,&r) ? r : r +1;
+}
+
 #endif

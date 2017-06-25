@@ -4942,9 +4942,9 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             }
 
             if (!sProto)
-                amount = m_modifier.total(base_coeff);
+                amount = m_modifier.total(base_coeff, true);
             else
-                amount = data * base_coeff;
+                amount = dither(data * base_coeff);
 
             if (amount < 0)
                 amount = 0;
@@ -6876,4 +6876,11 @@ void Aura::ExclusiveAuraUnapply()
         ASSERT(!mostImportant->IsApplied());
         mostImportant->ApplyModifier(true, true, true);
     }
+}
+
+int32 Modifier::total(float base_coeff, bool use_dither) const
+{
+    return use_dither
+            ? dither((m_base * base_coeff + m_bonus) * m_bonus_pct)
+            : (m_base * base_coeff + m_bonus) * m_bonus_pct;
 }
