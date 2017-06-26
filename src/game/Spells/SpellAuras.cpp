@@ -482,6 +482,7 @@ SpellAuraHolder* CreateSpellAuraHolder(SpellEntry const* spellproto, Unit *targe
 void Aura::SetModifier(AuraType t, int32 a, uint32 pt, int32 miscValue)
 {
     m_modifier.reset();
+    m_modifier.m_base = a;
     m_modifier.m_auraname = t;
     m_modifier.m_miscvalue = miscValue;
     m_modifier.periodictime = pt;
