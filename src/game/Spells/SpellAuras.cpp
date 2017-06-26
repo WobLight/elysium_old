@@ -481,11 +481,8 @@ SpellAuraHolder* CreateSpellAuraHolder(SpellEntry const* spellproto, Unit *targe
 
 void Aura::SetModifier(AuraType t, int32 a, uint32 pt, int32 miscValue)
 {
+    m_modifier.reset();
     m_modifier.m_auraname = t;
-    m_modifier.m_base = a;
-    m_modifier.m_bonus = 0;
-    m_modifier.m_bonus_pct = 1;
-    m_modifier.m_used = 0;
     m_modifier.m_miscvalue = miscValue;
     m_modifier.periodictime = pt;
 }
@@ -4917,7 +4914,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             CleanDamage cleanDamage = CleanDamage(0, BASE_ATTACK, MELEE_HIT_NORMAL, 0, 0);
 
             // ignore non positive values (can be result apply spellmods to aura damage
-            uint32 amount = 0;
+            DamageModifier amount;
             float base_coeff = 1;
             // Curse of Agony damage-per-tick calculation
             if (spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CURSE_OF_AGONY>())
@@ -4942,26 +4939,19 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             }
 
             if (!sProto)
-                amount = std::max(m_modifier.total(base_coeff, true),0);
+            {
+                amount = m_modifier;
+                auraType = m_modifier.m_auraname;
+            }
             else
-                amount = dither(data * base_coeff);
+                amount.m_base = data;
 
             uint32 pdamage;
 
-            if (sProto)
-            {
-                if (auraType == SPELL_AURA_PERIODIC_DAMAGE)
-                    pdamage = amount;
-                else
-                    pdamage = uint32(target->GetMaxHealth() * amount / 100);
-            }
+            if (auraType != SPELL_AURA_PERIODIC_DAMAGE)
+                pdamage = amount.total(true,base_coeff);
             else
-            {
-                if (m_modifier.m_auraname == SPELL_AURA_PERIODIC_DAMAGE)
-                    pdamage = amount;
-                else
-                    pdamage = uint32(target->GetMaxHealth() * amount / 100);
-            }
+                pdamage = dither<uint32>(std::max(target->GetMaxHealth() * amount.raw(base_coeff) / 100, 0.0f));
 
             // SpellDamageBonus for magic spells
             if (spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE || spellProto->DmgClass == SPELL_DAMAGE_CLASS_MAGIC)
@@ -6875,9 +6865,20 @@ void Aura::ExclusiveAuraUnapply()
     }
 }
 
-int32 Modifier::total(float base_coeff, bool use_dither) const
+int32 DamageModifier::total(bool use_dither, float base_coeff) const
 {
-    return use_dither
-            ? dither((m_base * base_coeff + m_bonus) * m_bonus_pct)
-            : (m_base * base_coeff + m_bonus) * m_bonus_pct;
+    return use_dither ? dither(raw(base_coeff)) : raw();
+}
+
+float DamageModifier::raw(float base_coeff) const
+{
+    return (m_base * base_coeff + m_bonus) * m_bonus_pct - m_flat;
+}
+
+void DamageModifier::reset()
+{
+    m_base = 0;
+    m_bonus = 0;
+    m_bonus_pct = 1;
+    m_flat = 0;
 }

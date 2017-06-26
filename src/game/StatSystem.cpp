@@ -139,7 +139,7 @@ void Player::UpdateArmor()
     AuraList const& mResbyIntellect = GetAurasByType(SPELL_AURA_MOD_RESISTANCE_OF_STAT_PERCENT);
     for (AuraList::const_iterator i = mResbyIntellect.begin(); i != mResbyIntellect.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue & SPELL_SCHOOL_MASK_NORMAL)
             value += int32(GetStat(STAT_INTELLECT) * mod->total() / 100.0f);
     }

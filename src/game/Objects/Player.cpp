@@ -6710,7 +6710,7 @@ void Player::_ApplyWeaponDependentAuraCritMod(Item *item, WeaponAttackType attac
 void Player::_ApplyWeaponDependentAuraDamageMod(Item *item, WeaponAttackType attackType, Aura* aura, bool apply)
 {
     // ignore spell mods for not wands
-    Modifier const* modifier = aura->GetModifier();
+    AuraModifier const* modifier = aura->GetModifier();
     if ((modifier->m_miscvalue & SPELL_SCHOOL_MASK_NORMAL) == 0 && (getClassMask() & CLASSMASK_WAND_USERS) == 0)
         return;
 
@@ -14582,7 +14582,7 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
     for (int i = UNIT_FIELD_AURA; i <= UNIT_FIELD_AURASTATE; ++i)
         SetUInt32Value(i, 0);
 
-    //QueryResult *result = CharacterDatabase.PQuery("SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, used0, used1, used2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM character_aura WHERE guid = '%u'",GetGUIDLow());
+    //QueryResult *result = CharacterDatabase.PQuery("SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, flat0, flat1, flat2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM character_aura WHERE guid = '%u'",GetGUIDLow());
 
     if (result)
     {
@@ -14601,7 +14601,7 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
                 s.base[i] = fields[i + 5].GetInt32();
                 s.bonus[i] = fields[i + 8].GetInt32();
                 s.bonus_pct[i] = fields[i + 11].GetFloat();
-                s.used[i] = fields[i + 14].GetInt32();
+                s.flat[i] = fields[i + 14].GetInt32();
                 s.periodicTime[i] = fields[i + 17].GetUInt32();
             }
 
@@ -14663,10 +14663,10 @@ void Player::LoadAura(AuraSaveStruct& s, uint32 timediff)
             s.base[i] = aura->GetModifier()->m_base;
             s.bonus[i] = aura->GetModifier()->m_bonus;
             s.bonus_pct[i] = aura->GetModifier()->m_bonus_pct;
-            s.used[i] = aura->GetModifier()->m_used;
+            s.flat[i] = aura->GetModifier()->m_flat;
         }
 
-        aura->SetLoadedState(s.base[i], s.bonus[i], s.bonus_pct[i], s.used[i], s.periodicTime[i]);
+        aura->SetLoadedState(s.base[i], s.bonus[i], s.bonus_pct[i], s.flat[i], s.periodicTime[i]);
         holder->AddAura(aura, SpellEffectIndex(i));
     }
 
@@ -15599,7 +15599,7 @@ void Player::SaveGoldToDB()
     stmt.PExecute(GetMoney(), GetGUIDLow());
 }
 
-void Player::ApplySpellMod(uint32 spellId, SpellModOp op, Modifier *basevalue, Spell* spell)
+void Player::ApplySpellMod(uint32 spellId, SpellModOp op, AuraModifier *basevalue, Spell* spell)
 {
     SpellEntry const *spellInfo = sSpellMgr.GetSpellEntry(spellId);
     if (!spellInfo) return;
@@ -15639,7 +15639,7 @@ void Player::ApplySpellMod(uint32 spellId, SpellModOp op, Modifier *basevalue, S
     }
 
     basevalue->m_bonus_pct *= 1 + totalpct/100.0f;
-    basevalue->m_bonus += totalflat/basevalue->m_bonus_pct;
+    basevalue->m_flat += totalflat;
 }
 
 void Player::_SaveAuras()
@@ -15656,7 +15656,7 @@ void Player::_SaveAuras()
         return;
 
     stmt = CharacterDatabase.CreateStatement(insertAuras, "INSERT INTO character_aura (guid, caster_guid, item_guid, spell, stackcount, remaincharges, "
-            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, used0, used1, used2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
+            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, flat0, flat1, flat2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     AuraSaveStruct s;
@@ -15681,7 +15681,7 @@ void Player::_SaveAuras()
         for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             stmt.addFloat(s.bonus_pct[i]);
         for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-            stmt.addInt32(s.used[i]);
+            stmt.addInt32(s.flat[i]);
 
         for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             stmt.addUInt32(s.periodicTime[i]);
@@ -15710,7 +15710,7 @@ bool Player::SaveAura(SpellAuraHolder* holder, AuraSaveStruct& saveStruct)
             saveStruct.base[i] = 0;
             saveStruct.bonus[i] = 0;
             saveStruct.bonus_pct[i] = 1;
-            saveStruct.used[i] = 0;
+            saveStruct.flat[i] = 0;
             saveStruct.periodicTime[i] = 0;
 
             if (Aura *aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
@@ -15722,7 +15722,7 @@ bool Player::SaveAura(SpellAuraHolder* holder, AuraSaveStruct& saveStruct)
                 saveStruct.base[i] = aur->GetModifier()->m_base;
                 saveStruct.bonus[i] = aur->GetModifier()->m_bonus;
                 saveStruct.bonus_pct[i] = aur->GetModifier()->m_bonus_pct;
-                saveStruct.used[i] = aur->GetModifier()->m_used;
+                saveStruct.flat[i] = aur->GetModifier()->m_flat;
                 saveStruct.periodicTime[i] = aur->GetModifier()->periodictime;
                 saveStruct.effIndexMask |= (1 << i);
             }

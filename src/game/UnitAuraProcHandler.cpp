@@ -719,7 +719,7 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     
                     if (igniteAura)
                     {
-                        Modifier *igniteModifier = igniteAura->GetModifier();
+                        AuraModifier *igniteModifier = igniteAura->GetModifier();
                         SpellAuraHolder* igniteHolder = igniteAura->GetHolder();
                         
                         int32 tickDamage = igniteModifier->m_base;

@@ -2174,12 +2174,12 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
     AuraList const& vSchoolAbsorb = GetAurasByType(SPELL_AURA_SCHOOL_ABSORB);
     for (AuraList::const_iterator i = vSchoolAbsorb.begin(); i != vSchoolAbsorb.end() && RemainingDamage > 0; ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (!(mod->m_miscvalue & schoolMask))
             continue;
 
         // Max Amount can be absorbed by this aura
-        int32  currentAbsorb = mod->remaning();
+        int32  currentAbsorb = mod->total(true);
 
         // Found empty aura (impossible but..)
         if (currentAbsorb <= 0)
@@ -2196,13 +2196,12 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
         RemainingDamage -= currentAbsorb;
 
         // Reduce shield amount
-        mod->m_used += currentAbsorb;
+        mod->m_flat -= currentAbsorb;
         if ((*i)->GetHolder()->DropAuraCharge())
-        {
-            mod->m_used = mod->total();
-        }
+            mod->reset();
+
         // Need remove it later
-        if (mod->remaning() <= 0)
+        if (mod->raw() <= 0)
             existExpired = true;
     }
 
@@ -2211,7 +2210,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
     {
         for (AuraList::const_iterator i = vSchoolAbsorb.begin(); i != vSchoolAbsorb.end();)
         {
-            if ((*i)->GetModifier()->remaning() <= 0)
+            if ((*i)->GetModifier()->raw() <= 0)
             {
                 RemoveAurasDueToSpell((*i)->GetId(), nullptr, AURA_REMOVE_BY_SHIELD_BREAK);
                 i = vSchoolAbsorb.begin();
@@ -2233,8 +2232,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             continue;
 
         int32 currentAbsorb;
-        if (RemainingDamage >= (*i)->GetModifier()->remaning())
-            currentAbsorb = (*i)->GetModifier()->remaning();
+        if (RemainingDamage >= (*i)->GetModifier()->raw())
+            currentAbsorb = (*i)->GetModifier()->total(true);
         else
             currentAbsorb = RemainingDamage;
 
@@ -2251,8 +2250,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             ApplyPowerMod(POWER_MANA, manaReduction, false);
         }
 
-        (*i)->GetModifier()->m_used += currentAbsorb;
-        if ((*i)->GetModifier()->remaning() <= 0)
+        (*i)->GetModifier()->m_flat -= currentAbsorb;
+        if ((*i)->GetModifier()->raw() <= 0)
         {
             RemoveAurasDueToSpell((*i)->GetId());
             next = vManaShield.begin();
@@ -2280,8 +2279,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
                 continue;
 
             int32 currentAbsorb;
-            if (RemainingDamage >= (*i)->GetModifier()->remaning())
-                currentAbsorb = (*i)->GetModifier()->remaning();
+            if (RemainingDamage >= (*i)->GetModifier()->raw())
+                currentAbsorb = (*i)->GetModifier()->total(true);
             else
                 currentAbsorb = RemainingDamage;
 
@@ -2316,7 +2315,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             if (!caster || caster == this || !caster->IsInWorld() || !caster->isAlive())
                 continue;
 
-            uint32 splitted = uint32(RemainingDamage * (*i)->GetModifier()->remaning() / 100.0f);
+            uint32 splitted = uint32(RemainingDamage * (*i)->GetModifier()->raw() / 100.0f);
 
             RemainingDamage -=  int32(splitted);
 
@@ -3692,7 +3691,7 @@ int32 Unit::GetTotalAuraModifierByMiscMask(AuraType auratype, uint32 misc_mask) 
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue & misc_mask)
             modifier += mod->total();
     }
@@ -3709,7 +3708,7 @@ float Unit::GetTotalAuraMultiplierByMiscMask(AuraType auratype, uint32 misc_mask
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue & misc_mask)
             multiplier *= (100.0f + mod->total()) / 100.0f;
     }
@@ -3726,7 +3725,7 @@ int32 Unit::GetMaxPositiveAuraModifierByMiscMask(AuraType auratype, uint32 misc_
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue & misc_mask && mod->total() > modifier)
             modifier = mod->total();
     }
@@ -3744,7 +3743,7 @@ int32 Unit::GetMaxNegativeAuraModifierByMiscMask(AuraType auratype, uint32 misc_
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue & misc_mask && mod->total() < modifier)
             modifier = mod->total();
     }
@@ -3759,7 +3758,7 @@ int32 Unit::GetTotalAuraModifierByMiscValue(AuraType auratype, int32 misc_value)
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue == misc_value)
             modifier += mod->total();
     }
@@ -3773,7 +3772,7 @@ float Unit::GetTotalAuraMultiplierByMiscValue(AuraType auratype, int32 misc_valu
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue == misc_value)
             multiplier *= (100.0f + mod->total()) / 100.0f;
     }
@@ -3787,7 +3786,7 @@ int32 Unit::GetMaxPositiveAuraModifierByMiscValue(AuraType auratype, int32 misc_
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue == misc_value && mod->total() > modifier)
             modifier = mod->total();
     }
@@ -3802,7 +3801,7 @@ int32 Unit::GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_
     AuraList const& mTotalAuraList = GetAurasByType(auratype);
     for (AuraList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
     {
-        Modifier* mod = (*i)->GetModifier();
+        AuraModifier* mod = (*i)->GetModifier();
         if (mod->m_miscvalue == misc_value && mod->total() < modifier)
             modifier = mod->total();
     }
@@ -5022,7 +5021,7 @@ void Unit::SendSpellNonMeleeDamageLog(Unit *target, uint32 SpellID, uint32 Damag
 void Unit::SendPeriodicAuraLog(SpellPeriodicAuraLogInfo *pInfo, AuraType auraTypeOverride)
 {
     Aura *aura = pInfo->aura;
-    Modifier *mod = aura->GetModifier();
+    AuraModifier *mod = aura->GetModifier();
     AuraType auraType = auraTypeOverride ? auraTypeOverride : mod->m_auraname;
 
     WorldPacket data(SMSG_PERIODICAURALOG, 30);
@@ -5142,7 +5141,7 @@ void Unit::HandleTriggers(Unit *pVictim, uint32 procExtra, uint32 amount, SpellE
             if (!triggeredByAura)
                 continue;
 
-            Modifier *auraModifier = triggeredByAura->GetModifier();
+            AuraModifier *auraModifier = triggeredByAura->GetModifier();
 
             if (procSpell)
             {
@@ -6188,7 +6187,7 @@ int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int3
  * Calculates caster part of spell damage bonuses,
  * also includes different bonuses dependent from target auras
  */
-void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, Modifier *pdamage, DamageEffectType damagetype, uint32 stack, Spell* spell)
+void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, AuraModifier *pdamage, DamageEffectType damagetype, uint32 stack, Spell* spell)
 {
     if (!spellProto || !pVictim || damagetype == DIRECT_DAMAGE)
         return;
@@ -6376,7 +6375,7 @@ int32 Unit::SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask)
 
 uint32 Unit::SpellDamageBonusDone(Unit *pVictim, const SpellEntry *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack, Spell *spell)
 {
-    Modifier m;
+    AuraModifier m;
     m.m_base = pdamage;
     m.m_bonus = 0;
     m.m_bonus_pct = 1;
@@ -6553,7 +6552,7 @@ uint32 Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 dama
  * Calculates caster part of healing spell bonuses,
  * also includes different bonuses dependent from target auras
  */
-void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Modifier *healamount, DamageEffectType damagetype, uint32 stack, Spell* spell)
+void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, AuraModifier *healamount, DamageEffectType damagetype, uint32 stack, Spell* spell)
 {
     // For totems get healing bonus from owner (statue isn't totem in fact)
     if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType() != TOTEM_STATUE)
@@ -6620,7 +6619,7 @@ void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Mo
 
 uint32 Unit::SpellHealingBonusDone(Unit *pVictim, const SpellEntry *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack, Spell *spell)
 {
-    Modifier m;
+    AuraModifier m;
     m.m_base = healamount;
     m.m_bonus = 0;
     m.m_bonus_pct = 1;
@@ -6835,7 +6834,7 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
 
 uint32 Unit::MeleeDamageBonusDone(Unit* pVictim, uint32 pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
 {
-    Modifier m;
+    AuraModifier m;
     m.m_base = pdamage;
     m.m_bonus = 0;
     m.m_bonus_pct = 1;
@@ -6847,7 +6846,7 @@ uint32 Unit::MeleeDamageBonusDone(Unit* pVictim, uint32 pdamage, WeaponAttackTyp
  * Calculates caster part of melee damage bonuses,
  * also includes different bonuses dependent from target auras
  */
-void Unit::MeleeDamageBonusDone(Unit* pVictim, Modifier *pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
+void Unit::MeleeDamageBonusDone(Unit* pVictim, AuraModifier *pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
 {
     if (!pVictim)
         return;

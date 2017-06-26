@@ -188,7 +188,7 @@ void CharacterDatabaseCache::LoadPetAura(uint32 singlePetId)
         result = CharacterDatabase.PQuery(
                      "SELECT guid, caster_guid, item_guid, spell, stackcount, remaincharges, maxduration, remaintime, effIndexMask, "
                      "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2,"
-                     "used0, used1, used2, periodictime0, periodictime1, periodictime2 "
+                     "flat0, flat1, flat2, periodictime0, periodictime1, periodictime2 "
                      "FROM pet_aura WHERE guid=%u", singlePetId
                  );
     }
@@ -203,7 +203,7 @@ void CharacterDatabaseCache::LoadPetAura(uint32 singlePetId)
                                   //          0     1             2           3    4           5              6            7              8
                                   "SELECT guid, caster_guid, item_guid, spell, stackcount, remaincharges, maxduration, remaintime, effIndexMask, "
                                   // 9 -> 11                                12 -> 14                15 -> 17                            18 -> 20
-                                  "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, used0, used1, used2,"
+                                  "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, flat0, flat1, flat2,"
                                   // 21 -> 23
                                   "periodictime0, periodictime1, periodictime2 "
                                   "FROM pet_aura ORDER BY guid ASC"

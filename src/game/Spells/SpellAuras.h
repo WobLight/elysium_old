@@ -26,18 +26,31 @@
 #include "DBCEnums.h"
 #include "ObjectGuid.h"
 
-struct Modifier
+struct DamageModifier
 {
-    AuraType m_auraname;
+    DamageModifier() :
+        m_base(0),
+        m_bonus(0),
+        m_bonus_pct(1),
+        m_flat(0)
+    {
+    }
+
     int32 m_base;
     int32 m_bonus;
     float m_bonus_pct;
-    int32 m_used;
+    int32 m_flat;
+
+    int32 total(bool use_dither = false, float base_coeff=1) const;
+    float raw(float base_coeff=1) const;
+    void reset();
+};
+
+struct AuraModifier : DamageModifier
+{
+    AuraType m_auraname;
     int32 m_miscvalue;
     uint32 periodictime;
-
-    int32 total(float base_coeff=1, bool use_dither = false) const;
-    int32 remaning() const { return total() - m_used; }
 };
 
 struct HeartBeatData
@@ -394,8 +407,8 @@ class MANGOS_DLL_SPEC Aura
         virtual ~Aura();
 
         void SetModifier(AuraType t, int32 a, uint32 pt, int32 miscValue);
-        Modifier*       GetModifier()       { return &m_modifier; }
-        Modifier const* GetModifier() const { return &m_modifier; }
+        AuraModifier*       GetModifier()       { return &m_modifier; }
+        AuraModifier const* GetModifier() const { return &m_modifier; }
         int32 GetMiscValue() const { return m_spellAuraHolder->GetSpellProto()->EffectMiscValue[m_effIndex]; }
 
         SpellEntry const* GetSpellProto() const { return GetHolder()->GetSpellProto(); }
@@ -420,12 +433,12 @@ class MANGOS_DLL_SPEC Aura
         uint32 GetStackAmount() const { return GetHolder()->GetStackAmount(); }
 
         void CalculatePeriodic(Player * modOwner, bool create);
-        void SetLoadedState(int32 base, int32 bonus, float pct, int32 used, uint32 periodicTime)
+        void SetLoadedState(int32 base, int32 bonus, float pct, int32 flat, uint32 periodicTime)
         {
             m_modifier.m_base = base;
             m_modifier.m_bonus = bonus;
             m_modifier.m_bonus_pct = pct;
-            m_modifier.m_used = used;
+            m_modifier.m_flat = flat;
             m_modifier.periodictime = periodicTime;
 
             if(uint32 maxticks = GetAuraMaxTicks())
@@ -502,7 +515,7 @@ class MANGOS_DLL_SPEC Aura
 
         void ReapplyAffectedPassiveAuras();
 
-        Modifier m_modifier;
+        AuraModifier m_modifier;
         SpellModifier *m_spellmod;
 
         time_t m_applyTime;
