@@ -4942,12 +4942,9 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             }
 
             if (!sProto)
-                amount = m_modifier.total(base_coeff, true);
+                amount = std::max(m_modifier.total(base_coeff, true),0);
             else
                 amount = dither(data * base_coeff);
-
-            if (amount < 0)
-                amount = 0;
 
             uint32 pdamage;
 
