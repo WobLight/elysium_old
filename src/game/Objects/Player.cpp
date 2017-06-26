@@ -15638,8 +15638,8 @@ void Player::ApplySpellMod(uint32 spellId, SpellModOp op, Modifier *basevalue, S
         }
     }
 
-    basevalue->m_bonus_pct *= basevalue->total()*totalpct/100.0f;
-    basevalue->m_base += totalflat/basevalue->m_bonus_pct;
+    basevalue->m_bonus_pct *= 1 + totalpct/100.0f;
+    basevalue->m_bonus += totalflat/basevalue->m_bonus_pct;
 }
 
 void Player::_SaveAuras()
