@@ -6873,7 +6873,7 @@ int32 DamageModifier::total(bool use_dither, float base_coeff) const
 
 float DamageModifier::raw(float base_coeff) const
 {
-    return (m_base * base_coeff + m_bonus) * m_bonus_pct - m_flat;
+    return (m_base * base_coeff + m_bonus) * m_bonus_pct + m_flat;
 }
 
 void DamageModifier::reset()
