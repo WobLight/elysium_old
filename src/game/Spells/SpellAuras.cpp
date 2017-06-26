@@ -4949,7 +4949,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
 
             uint32 pdamage;
 
-            if (auraType != SPELL_AURA_PERIODIC_DAMAGE)
+            if (auraType == SPELL_AURA_PERIODIC_DAMAGE)
                 pdamage = amount.total(true,base_coeff);
             else
                 pdamage = dither<uint32>(std::max(target->GetMaxHealth() * amount.raw(base_coeff) / 100, 0.0f));

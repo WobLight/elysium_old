@@ -1753,7 +1753,7 @@ void Pet::_SaveAuras()
         return;
 
     stmt = CharacterDatabase.CreateStatement(insAuras, "INSERT INTO pet_aura (guid, caster_guid, item_guid, spell, stackcount, remaincharges, "
-            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, used0, used1, used2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
+            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, flat0, flat1, flat2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     for (SpellAuraHolderMap::const_iterator itr = auraHolders.begin(); itr != auraHolders.end(); ++itr)
