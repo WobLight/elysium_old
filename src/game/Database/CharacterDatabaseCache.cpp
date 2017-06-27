@@ -187,7 +187,7 @@ void CharacterDatabaseCache::LoadPetAura(uint32 singlePetId)
     {
         result = CharacterDatabase.PQuery(
                      "SELECT guid, caster_guid, item_guid, spell, stackcount, remaincharges, maxduration, remaintime, effIndexMask, "
-                     "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2,"
+                     "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2"
                      "flat0, flat1, flat2, periodictime0, periodictime1, periodictime2 "
                      "FROM pet_aura WHERE guid=%u", singlePetId
                  );
@@ -202,9 +202,9 @@ void CharacterDatabaseCache::LoadPetAura(uint32 singlePetId)
         result = CharacterDatabase.Query(
                                   //          0     1             2           3    4           5              6            7              8
                                   "SELECT guid, caster_guid, item_guid, spell, stackcount, remaincharges, maxduration, remaintime, effIndexMask, "
-                                  // 9 -> 11                                12 -> 14                15 -> 17                            18 -> 20
-                                  "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, flat0, flat1, flat2,"
-                                  // 21 -> 23
+                                  // 9 -> 11                                12 -> 14
+                                  "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2,"
+                                  // 15 -> 17
                                   "periodictime0, periodictime1, periodictime2 "
                                   "FROM pet_aura ORDER BY guid ASC"
                               );
@@ -238,11 +238,9 @@ void CharacterDatabaseCache::LoadPetAura(uint32 singlePetId)
 
         for (int i = 0; i < 3; ++i)
         {
-            _auraStruct.basepoints[i]   = fields[9 + i].GetInt32();
-            _auraStruct.bonus[i]        = fields[12 + i].GetInt32();
-            _auraStruct.bonus_pct[i]    = fields[15 + i].GetFloat();
-            _auraStruct.used[i]         = fields[18 + i].GetInt32();
-            _auraStruct.periodictime[i] = fields[21 + i].GetUInt32();
+            _auraStruct.basepoints[i]   = fields[9 + i].GetFloat();
+            _auraStruct.bonus[i]        = fields[12 + i].GetFloat();
+            _auraStruct.periodictime[i] = fields[15 + i].GetUInt32();
         }
 
         if (!_auraStruct.spell)

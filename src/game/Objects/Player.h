@@ -824,10 +824,8 @@ struct AuraSaveStruct
     uint32 spellid;
     uint32 stackcount;
     uint32 remaincharges;
-    int32  base[MAX_EFFECT_INDEX];
-    int32  bonus[MAX_EFFECT_INDEX];
-    int32  bonus_pct[MAX_EFFECT_INDEX];
-    int32  flat[MAX_EFFECT_INDEX];
+    float  base[MAX_EFFECT_INDEX];
+    float  bonus[MAX_EFFECT_INDEX];
     uint32 periodicTime[MAX_EFFECT_INDEX];
 
     int32 maxduration;
@@ -1432,7 +1430,7 @@ class MANGOS_DLL_SPEC Player final: public Unit
         void AddSpellMod(SpellModifier* mod, bool apply);
         void SendSpellMod(SpellModifier const* mod);
         bool IsAffectedBySpellmod(SpellEntry const *spellInfo, SpellModifier *mod, Spell* spell = NULL);
-        void ApplySpellMod(uint32 spellId, SpellModOp op, AuraModifier *basevalue, Spell* spell = nullptr);
+        void ApplySpellMod(uint32 spellId, SpellModOp op, DamageModifier *basevalue, Spell* spell = nullptr);
         template <class T> T ApplySpellMod(uint32 spellId, SpellModOp op, T &basevalue, Spell* spell = NULL);
         SpellModifier* GetSpellMod(SpellModOp op, uint32 spellId) const;
         void RemoveSpellMods(Spell* spell);

@@ -30,19 +30,17 @@ struct DamageModifier
 {
     DamageModifier() :
         m_base(0),
-        m_bonus(0),
-        m_bonus_pct(1),
-        m_flat(0)
+        m_bonus(0)
     {
     }
 
-    int32 m_base;
-    int32 m_bonus;
-    float m_bonus_pct;
-    int32 m_flat;
+    float m_base;
+    float m_bonus;
 
     int32 total(bool use_dither = false, float base_coeff=1) const;
     float raw(float base_coeff=1) const;
+    void commit(float base_coeff = 1);
+    void applyMult(float f);
     void reset();
 };
 
@@ -433,12 +431,10 @@ class MANGOS_DLL_SPEC Aura
         uint32 GetStackAmount() const { return GetHolder()->GetStackAmount(); }
 
         void CalculatePeriodic(Player * modOwner, bool create);
-        void SetLoadedState(int32 base, int32 bonus, float pct, int32 flat, uint32 periodicTime)
+        void SetLoadedState(float base, float bonus, uint32 periodicTime)
         {
             m_modifier.m_base = base;
             m_modifier.m_bonus = bonus;
-            m_modifier.m_bonus_pct = pct;
-            m_modifier.m_flat = flat;
             m_modifier.periodictime = periodicTime;
 
             if(uint32 maxticks = GetAuraMaxTicks())

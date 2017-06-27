@@ -2196,7 +2196,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
         RemainingDamage -= currentAbsorb;
 
         // Reduce shield amount
-        mod->m_flat -= currentAbsorb;
+        mod->m_bonus -= currentAbsorb;
         if ((*i)->GetHolder()->DropAuraCharge())
             mod->reset();
 
@@ -2250,7 +2250,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             ApplyPowerMod(POWER_MANA, manaReduction, false);
         }
 
-        (*i)->GetModifier()->m_flat -= currentAbsorb;
+        (*i)->GetModifier()->m_bonus -= currentAbsorb;
         if ((*i)->GetModifier()->raw() <= 0)
         {
             RemoveAurasDueToSpell((*i)->GetId());
@@ -6187,7 +6187,7 @@ int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int3
  * Calculates caster part of spell damage bonuses,
  * also includes different bonuses dependent from target auras
  */
-void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, AuraModifier *pdamage, DamageEffectType damagetype, uint32 stack, Spell* spell)
+void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, DamageModifier *pdamage, DamageEffectType damagetype, uint32 stack, Spell* spell)
 {
     if (!spellProto || !pVictim || damagetype == DIRECT_DAMAGE)
         return;
@@ -6289,7 +6289,7 @@ void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, Aur
     DoneTotal = SpellBonusWithCoeffs(spellProto, DoneTotal, DoneAdvertisedBenefit, 0, damagetype, true, this, spell);
 
     pdamage->m_bonus += DoneTotal * stack;
-    pdamage->m_bonus_pct *= DoneTotalMod;
+    pdamage->applyMult(DoneTotalMod);
     // apply spellmod to Done damage (flat and pct)
     if (Player* modOwner = GetSpellModOwner())
         modOwner->ApplySpellMod(spellProto->Id, damagetype == DOT ? SPELLMOD_DOT : SPELLMOD_DAMAGE, pdamage, spell);
@@ -6375,10 +6375,8 @@ int32 Unit::SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask)
 
 uint32 Unit::SpellDamageBonusDone(Unit *pVictim, const SpellEntry *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack, Spell *spell)
 {
-    AuraModifier m;
+    DamageModifier m;
     m.m_base = pdamage;
-    m.m_bonus = 0;
-    m.m_bonus_pct = 1;
     SpellDamageBonusDone(pVictim, spellProto, &m, damagetype, stack, spell);
     int ret = m.total();
     return ret > 0 ? ret : 0;
@@ -6552,7 +6550,7 @@ uint32 Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 dama
  * Calculates caster part of healing spell bonuses,
  * also includes different bonuses dependent from target auras
  */
-void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, AuraModifier *healamount, DamageEffectType damagetype, uint32 stack, Spell* spell)
+void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, DamageModifier *healamount, DamageEffectType damagetype, uint32 stack, Spell* spell)
 {
     // For totems get healing bonus from owner (statue isn't totem in fact)
     if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType() != TOTEM_STATUE)
@@ -6608,7 +6606,7 @@ void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Au
 
     // use float as more appropriate for negative values and percent applying
     healamount->m_bonus += DoneTotal * stack;
-    healamount->m_bonus_pct *= DoneTotalMod;
+    healamount->applyMult(DoneTotalMod);
     // apply spellmod to Done amount
     if (Player* modOwner = GetSpellModOwner())
         modOwner->ApplySpellMod(spellProto->Id, damagetype == DOT ? SPELLMOD_DOT : SPELLMOD_DAMAGE, healamount, spell);
@@ -6619,10 +6617,8 @@ void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Au
 
 uint32 Unit::SpellHealingBonusDone(Unit *pVictim, const SpellEntry *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack, Spell *spell)
 {
-    AuraModifier m;
+    DamageModifier m;
     m.m_base = healamount;
-    m.m_bonus = 0;
-    m.m_bonus_pct = 1;
     SpellHealingBonusDone(pVictim, spellProto, &m, damagetype, stack, spell);
     int ret = m.total();
     return ret > 0 ? ret : 0;
@@ -6834,10 +6830,8 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
 
 uint32 Unit::MeleeDamageBonusDone(Unit* pVictim, uint32 pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
 {
-    AuraModifier m;
+    DamageModifier m;
     m.m_base = pdamage;
-    m.m_bonus = 0;
-    m.m_bonus_pct = 1;
     MeleeDamageBonusDone(pVictim, &m, attType, spellProto, damagetype, stack, spell, flat);
     int ret = m.total();
     return ret > 0 ? ret : 0;
@@ -6846,7 +6840,7 @@ uint32 Unit::MeleeDamageBonusDone(Unit* pVictim, uint32 pdamage, WeaponAttackTyp
  * Calculates caster part of melee damage bonuses,
  * also includes different bonuses dependent from target auras
  */
-void Unit::MeleeDamageBonusDone(Unit* pVictim, AuraModifier *pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
+void Unit::MeleeDamageBonusDone(Unit* pVictim, DamageModifier *pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
 {
     if (!pVictim)
         return;
@@ -6987,7 +6981,7 @@ void Unit::MeleeDamageBonusDone(Unit* pVictim, AuraModifier *pdamage, WeaponAtta
         DoneTotal = 0.0f;
 
     pdamage->m_bonus +=  DoneTotal * stack;
-    pdamage->m_bonus_pct *= DonePercent;
+    pdamage->applyMult(DonePercent);
 
     // apply spellmod to Done damage
     if (spellProto)

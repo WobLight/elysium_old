@@ -1656,18 +1656,14 @@ void Pet::_LoadAuras(uint32 timediff)
 
             uint32 stackcount   = it->stackcount;
             int32 remaincharges = (int32)it->remaincharges;
-            int32 base[MAX_EFFECT_INDEX];
-            int32 bonus[MAX_EFFECT_INDEX];
-            int32 bonus_pct[MAX_EFFECT_INDEX];
-            int32 flat[MAX_EFFECT_INDEX];
+            float base[MAX_EFFECT_INDEX];
+            float bonus[MAX_EFFECT_INDEX];
             int32 periodicTime[MAX_EFFECT_INDEX];
 
             for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             {
                 base[i]         = it->basepoints[i];
                 bonus[i]        = it->bonus[i];
-                bonus_pct[i]    = it->bonus_pct[i];
-                flat[i]         = it->used[i];
                 periodicTime[i] = it->periodictime[i];
             }
             int32 maxduration = it->maxduration;
@@ -1717,11 +1713,9 @@ void Pet::_LoadAuras(uint32 timediff)
                 {
                     base[i] = aura->GetModifier()->m_base;
                     bonus[i] = aura->GetModifier()->m_bonus;
-                    bonus_pct[i] = aura->GetModifier()->m_bonus_pct;
-                    flat[i] = aura->GetModifier()->m_flat;
                 }
 
-                aura->SetLoadedState(base[i], bonus[i], bonus_pct[i], flat[i], periodicTime[i]);
+                aura->SetLoadedState(base[i], bonus[i], periodicTime[i]);
                 holder->AddAura(aura, SpellEffectIndex(i));
             }
 
@@ -1753,8 +1747,8 @@ void Pet::_SaveAuras()
         return;
 
     stmt = CharacterDatabase.CreateStatement(insAuras, "INSERT INTO pet_aura (guid, caster_guid, item_guid, spell, stackcount, remaincharges, "
-            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, bonus_pct0, bonus_pct1, bonus_pct2, flat0, flat1, flat2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            "basepoints0, basepoints1, basepoints2, bonus0, bonus1, bonus2, periodictime0, periodictime1, periodictime2, maxduration, remaintime, effIndexMask) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     for (SpellAuraHolderMap::const_iterator itr = auraHolders.begin(); itr != auraHolders.end(); ++itr)
     {
@@ -1777,10 +1771,8 @@ void Pet::_SaveAuras()
         //do not save single target holders (unless they were cast by the player)
         if (save && !holder->IsPassive() && !IsChanneledSpell(holder->GetSpellProto()) && (holder->GetCasterGuid() == GetObjectGuid() || !holder->IsSingleTarget()))
         {
-            int32  base[MAX_EFFECT_INDEX];
-            int32  bonus[MAX_EFFECT_INDEX];
-            float  bonus_pct[MAX_EFFECT_INDEX];
-            int32  flat[MAX_EFFECT_INDEX];
+            float  base[MAX_EFFECT_INDEX];
+            float  bonus[MAX_EFFECT_INDEX];
             uint32 periodicTime[MAX_EFFECT_INDEX];
             uint32 effIndexMask = 0;
 
@@ -1788,8 +1780,6 @@ void Pet::_SaveAuras()
             {
                 base[i] = 0;
                 bonus[i] = 0;
-                bonus_pct[i] = 1;
-                flat[i] = 0;
                 periodicTime[i] = 0;
 
                 if (Aura *aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
@@ -1800,8 +1790,6 @@ void Pet::_SaveAuras()
 
                     base[i] = aur->GetModifier()->m_base;
                     bonus[i] = aur->GetModifier()->m_bonus;
-                    bonus_pct[i] = aur->GetModifier()->m_bonus_pct;
-                    flat[i] = aur->GetModifier()->m_flat;
                     periodicTime[i] = aur->GetModifier()->periodictime;
                     effIndexMask |= (1 << i);
                 }
@@ -1825,8 +1813,6 @@ void Pet::_SaveAuras()
                 {
                     c.basepoints[i]     = base[i];
                     c.bonus[i]          = bonus[i];
-                    c.bonus_pct[i]      = bonus_pct[i];
-                    c.used[i]           = flat[i];
                     c.periodictime[i]   = periodicTime[i];
                 }
                 m_pTmpCache->auras.push_back(c);
@@ -1840,13 +1826,9 @@ void Pet::_SaveAuras()
             stmt.addUInt8(holder->GetAuraCharges());
 
             for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-                stmt.addInt32(base[i]);
+                stmt.addFloat(base[i]);
             for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-                stmt.addInt32(bonus[i]);
-            for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-                stmt.addFloat(bonus_pct[i]);
-            for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-                stmt.addInt32(flat[i]);
+                stmt.addFloat(bonus[i]);
 
             for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
                 stmt.addUInt32(periodicTime[i]);
