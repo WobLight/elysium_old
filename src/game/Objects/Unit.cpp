@@ -6644,7 +6644,7 @@ float Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
     // No heal amount for this class spells
     if (spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE)
     {
-        healamount = int32(healamount * TakenTotalMod);
+        healamount = healamount * TakenTotalMod;
         return healamount < 0 ? 0 : healamount;
     }
 
@@ -6663,15 +6663,15 @@ float Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
         {
             // Libram of Divinity
             if ((*i)->GetSpellProto()->Id == 28851 && spellProto->IsFitToFamilyMask<CF_PALADIN_FLASH_OF_LIGHT1>())
-                TakenTotal += (*i)->GetModifier()->total();
+                TakenTotal += (*i)->GetModifier()->raw();
             if ((*i)->GetSpellProto()->IsFitToFamilyMask<CF_PALADIN_BLESSINGS>() && (*i)->GetSpellProto()->SpellVisual == 300)
             {
                 // Holy Light
                 if (spellProto->IsFitToFamilyMask<CF_PALADIN_HOLY_LIGHT2>() && (*i)->GetEffIndex() == EFFECT_INDEX_0)
-                    TakenTotal += (*i)->GetModifier()->total();
+                    TakenTotal += (*i)->GetModifier()->raw();
                 // Flash of Light
                 else if (spellProto->IsFitToFamilyMask<CF_PALADIN_FLASH_OF_LIGHT1>() && (*i)->GetEffIndex() == EFFECT_INDEX_1)
-                    TakenTotal += (*i)->GetModifier()->total();
+                    TakenTotal += (*i)->GetModifier()->raw();
             }
         }
     }
@@ -6686,7 +6686,7 @@ float Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
         Unit::AuraList const& auraDummy = GetAurasByType(SPELL_AURA_DUMMY);
         for (Unit::AuraList::const_iterator itr = auraDummy.begin(); itr != auraDummy.end(); ++itr)
             if ((*itr)->GetId() == 29203)
-                TakenTotalMod *= ((*itr)->GetModifier()->total() + 100.0f) / 100.0f;
+                TakenTotalMod *= ((*itr)->GetModifier()->raw() + 100.0f) / 100.0f;
     }
 
 
@@ -8187,7 +8187,7 @@ bool Unit::SelectHostileTarget()
 //======================================================================
 //======================================================================
 
-int32 Unit::CalculateSpellDamage(Unit const* target, SpellEntry const* spellProto, SpellEffectIndex effect_index, int32 const* effBasePoints, Spell* spell)
+float Unit::CalculateSpellDamage(Unit const* target, SpellEntry const* spellProto, SpellEffectIndex effect_index, int32 const* effBasePoints, Spell* spell)
 {
     Player* unitPlayer = (GetTypeId() == TYPEID_PLAYER) ? (Player*)this : NULL;
 
@@ -8229,11 +8229,11 @@ int32 Unit::CalculateSpellDamage(Unit const* target, SpellEntry const* spellProt
         }
     }
 
-    int32 value = basePoints;
+    float value = basePoints;
 
     // random damage
     if (comboDamage != 0 && unitPlayer && target && (target->GetObjectGuid() == unitPlayer->GetComboTargetGuid()))
-        value += (int32)(comboDamage * comboPoints);
+        value += comboDamage * comboPoints;
 
     if (Player* modOwner = GetSpellModOwner())
     {
@@ -8257,7 +8257,7 @@ int32 Unit::CalculateSpellDamage(Unit const* target, SpellEntry const* spellProt
             spellProto->Effect[effect_index] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE &&
             spellProto->Effect[effect_index] != SPELL_EFFECT_KNOCK_BACK &&
             (spellProto->Effect[effect_index] != SPELL_EFFECT_APPLY_AURA || spellProto->EffectApplyAuraName[effect_index] != SPELL_AURA_MOD_DECREASE_SPEED))
-        value = int32(value * 0.25f * exp(getLevel() * (70 - spellProto->spellLevel) / 1000.0f));
+        value = value * 0.25f * exp(getLevel() * (70 - spellProto->spellLevel) / 1000.0f);
 
     return value;
 }

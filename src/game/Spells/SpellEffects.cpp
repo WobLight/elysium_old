@@ -2217,7 +2217,7 @@ void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
                 idx++;
             }
 
-            int32 tickheal = targetAura->GetModifier()->total();
+            float tickheal = targetAura->GetModifier()->raw();
             int32 tickcount = 0;
             // Regrowth : 0x40
             // "18 sec of Regrowth" -> 6 ticks
