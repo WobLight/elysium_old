@@ -1406,7 +1406,7 @@ uint32 Unit::SpellNonMeleeDamageLog(Unit *pVictim, uint32 spellID, uint32 damage
     return damageInfo.damage;
 }
 
-void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType, Spell* spell)
+void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, float damage, SpellEntry const *spellInfo, WeaponAttackType attackType, Spell* spell)
 {
     SpellSchoolMask damageSchoolMask = GetSchoolMask(damageInfo->school);
     Unit *pVictim = damageInfo->target;
@@ -1468,7 +1468,7 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
     }
     else
         damage = 0;
-    damageInfo->damage = damage;
+    damageInfo->damage = dither(damage);
 }
 
 void Unit::DealSpellDamage(SpellNonMeleeDamage *damageInfo, bool durabilityLoss)
@@ -1995,10 +1995,10 @@ void Unit::HandleEmote(uint32 emote_id)
     }
 }
 
-uint32 Unit::CalcArmorReducedDamage(Unit* pVictim, const uint32 damage)
+float Unit::CalcArmorReducedDamage(Unit* pVictim, const float damage)
 {
-    uint32 newdamage = 0;
-    float armor = (float)pVictim->GetArmor();
+    float newdamage = 0;
+    float armor = pVictim->GetArmor();
 
     // Ignore enemy armor by SPELL_AURA_MOD_TARGET_RESISTANCE aura
     armor += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_TARGET_RESISTANCE, SPELL_SCHOOL_MASK_NORMAL);
@@ -2006,7 +2006,7 @@ uint32 Unit::CalcArmorReducedDamage(Unit* pVictim, const uint32 damage)
     if (armor < 0.0f)
         armor = 0.0f;
 
-    float levelModifier = (float)getLevel();
+    float levelModifier = getLevel();
     if (levelModifier > 59)
         levelModifier = levelModifier + (4.5f * (levelModifier - 59));
 
@@ -2018,7 +2018,7 @@ uint32 Unit::CalcArmorReducedDamage(Unit* pVictim, const uint32 damage)
     if (tmpvalue > 0.75f)
         tmpvalue = 0.75f;
 
-    newdamage = uint32(damage - (damage * tmpvalue));
+    newdamage = damage - (damage * tmpvalue);
 
     return (newdamage > 1) ? newdamage : 1;
 }
@@ -6114,7 +6114,7 @@ void Unit::EnergizeBySpell(Unit *pVictim, uint32 SpellID, uint32 Damage, Powers 
     pVictim->ModifyPower(powertype, Damage);
 }
 
-int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int32 benefit, int32 ap_benefit,  DamageEffectType damagetype, bool donePart, Unit *pCaster, Spell* spell)
+float Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, float total, int32 benefit, int32 ap_benefit,  DamageEffectType damagetype, bool donePart, Unit *pCaster, Spell* spell)
 {
     // Distribute Damage over multiple effects, reduce by AoE
     float coeff = 0.0f;
@@ -6133,7 +6133,7 @@ int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int3
         {
             float ap_bonus = damagetype == DOT ? bonus->ap_dot_bonus : bonus->ap_bonus;
 
-            total += int32(ap_bonus * (GetTotalAttackPowerValue(IsSpellRequiresRangedAP(spellProto) ? RANGED_ATTACK : BASE_ATTACK) + ap_benefit));
+            total += ap_bonus * (GetTotalAttackPowerValue(IsSpellRequiresRangedAP(spellProto) ? RANGED_ATTACK : BASE_ATTACK) + ap_benefit);
         }
     }
     // Calculate default coefficient
@@ -6174,14 +6174,14 @@ int32 Unit::SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int3
             bUsePenalty = false;
 
         if (bUsePenalty)
-            total += int32(benefit * coeff * LvlPenalty);
+            total += benefit * coeff * LvlPenalty;
         else
-            total += int32(benefit * coeff);
+            total += benefit * coeff;
 
     }
 
     return total;
-};
+}
 
 /**
  * Calculates caster part of spell damage bonuses,
@@ -6207,7 +6207,7 @@ void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, Dam
     }
 
     float DoneTotalMod = 1.0f;
-    int32 DoneTotal = 0;
+    float DoneTotal = 0;
     Item*  pWeapon = GetTypeId() == TYPEID_PLAYER ? ((Player*)this)->GetWeaponForAttack(BASE_ATTACK, true, false) : NULL;
 
     // Creature damage
@@ -6302,7 +6302,7 @@ void Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, Dam
  * Calculates target part of spell damage bonuses,
  * will be called on each tick for periodic damage over time auras
  */
-uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack, Spell* spell)
+float Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, float pdamage, DamageEffectType damagetype, uint32 stack, Spell* spell)
 {
     if (!spellProto || !pCaster || damagetype == DIRECT_DAMAGE)
         return pdamage;
@@ -6311,7 +6311,7 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
 
     // Taken total percent damage auras
     float TakenTotalMod = 1.0f;
-    int32 TakenTotal = 0;
+    float TakenTotal = 0;
 
     // ..taken
     TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, schoolMask);
@@ -6322,9 +6322,9 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
     // apply benefit affected by spell power implicit coeffs and spell level penalties
     TakenTotal = SpellBonusWithCoeffs(spellProto, TakenTotal, TakenAdvertisedBenefit, 0, damagetype, false, pCaster, spell);
 
-    float tmpDamage = (int32(pdamage) + TakenTotal * int32(stack)) * TakenTotalMod;
+    float tmpDamage = (pdamage + TakenTotal * stack) * TakenTotalMod;
 
-    return tmpDamage > 0 ? uint32(tmpDamage) : 0;
+    return tmpDamage > 0 ? tmpDamage : 0;
 }
 
 int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask)
@@ -6373,12 +6373,12 @@ int32 Unit::SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask)
     return TakenAdvertisedBenefit;
 }
 
-uint32 Unit::SpellDamageBonusDone(Unit *pVictim, const SpellEntry *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack, Spell *spell)
+float Unit::SpellDamageBonusDone(Unit *pVictim, const SpellEntry *spellProto, float pdamage, DamageEffectType damagetype, uint32 stack, Spell *spell)
 {
     DamageModifier m;
     m.m_base = pdamage;
     SpellDamageBonusDone(pVictim, spellProto, &m, damagetype, stack, spell);
-    int ret = m.total();
+    float ret = m.raw();
     return ret > 0 ? ret : 0;
 }
 
@@ -6487,10 +6487,10 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
     return false;
 }
 
-uint32 Unit::SpellCriticalDamageBonus(SpellEntry const *spellProto, uint32 damage, Unit *pVictim, Spell* spell)
+uint32 Unit::SpellCriticalDamageBonus(SpellEntry const *spellProto, float damage, Unit *pVictim, Spell* spell)
 {
     // Calculate critical bonus
-    int32 crit_bonus;
+    float crit_bonus;
     switch (spellProto->DmgClass)
     {
         case SPELL_DAMAGE_CLASS_MELEE:                      // for melee based spells is 100%
@@ -6569,7 +6569,7 @@ void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Da
     // Healing Done
     // Done total percent damage auras
     float  DoneTotalMod = 1.0f;
-    int32  DoneTotal = 0;
+    float  DoneTotal = 0;
 
     // Healing done percent
     AuraList const& mHealingDonePct = GetAurasByType(SPELL_AURA_MOD_HEALING_DONE_PERCENT);
@@ -6615,12 +6615,12 @@ void Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, Da
     return;
 }
 
-uint32 Unit::SpellHealingBonusDone(Unit *pVictim, const SpellEntry *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack, Spell *spell)
+float Unit::SpellHealingBonusDone(Unit *pVictim, const SpellEntry *spellProto, float healamount, DamageEffectType damagetype, uint32 stack, Spell *spell)
 {
     DamageModifier m;
     m.m_base = healamount;
     SpellHealingBonusDone(pVictim, spellProto, &m, damagetype, stack, spell);
-    int ret = m.total();
+    float ret = m.raw();
     return ret > 0 ? ret : 0;
 }
 
@@ -6628,16 +6628,16 @@ uint32 Unit::SpellHealingBonusDone(Unit *pVictim, const SpellEntry *spellProto, 
  * Calculates target part of healing spell bonuses,
  * will be called on each tick for periodic damage over time auras
  */
-uint32 Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack, Spell* spell)
+float Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto, float healamount, DamageEffectType damagetype, uint32 stack, Spell* spell)
 {
     float  TakenTotalMod = 1.0f;
 
     // Healing taken percent
-    float minval = float(GetMaxNegativeAuraModifier(SPELL_AURA_MOD_HEALING_PCT));
+    float minval = GetMaxNegativeAuraModifier(SPELL_AURA_MOD_HEALING_PCT);
     if (minval)
         TakenTotalMod *= (100.0f + minval) / 100.0f;
 
-    float maxval = float(GetMaxPositiveAuraModifier(SPELL_AURA_MOD_HEALING_PCT));
+    float maxval = GetMaxPositiveAuraModifier(SPELL_AURA_MOD_HEALING_PCT);
     if (maxval)
         TakenTotalMod *= (100.0f + maxval) / 100.0f;
 
@@ -6650,7 +6650,7 @@ uint32 Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto,
 
     // Healing Done
     // Done total percent damage auras
-    int32  TakenTotal = 0;
+    float  TakenTotal = 0;
 
     // Taken fixed damage bonus auras
     int32 TakenAdvertisedBenefit = SpellBaseHealingBonusTaken(GetSpellSchoolMask(spellProto));
@@ -6691,9 +6691,9 @@ uint32 Unit::SpellHealingBonusTaken(Unit *pCaster, SpellEntry const *spellProto,
 
 
     // use float as more appropriate for negative values and percent applying
-    float heal = (healamount + TakenTotal * int32(stack)) * TakenTotalMod;
+    float heal = (healamount + TakenTotal * stack) * TakenTotalMod;
 
-    return heal < 0 ? 0 : uint32(heal);
+    return heal < 0 ? 0 : heal;
 }
 
 int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask)
@@ -6828,12 +6828,12 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
     return false;
 }
 
-uint32 Unit::MeleeDamageBonusDone(Unit* pVictim, uint32 pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
+float Unit::MeleeDamageBonusDone(Unit* pVictim, float pdamage, WeaponAttackType attType, SpellEntry const* spellProto, DamageEffectType damagetype, uint32 stack, Spell* spell, bool flat)
 {
     DamageModifier m;
     m.m_base = pdamage;
     MeleeDamageBonusDone(pVictim, &m, attType, spellProto, damagetype, stack, spell, flat);
-    int ret = m.total();
+    float ret = m.raw();
     return ret > 0 ? ret : 0;
 }
 /**

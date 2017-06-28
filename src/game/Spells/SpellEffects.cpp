@@ -2188,7 +2188,7 @@ void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
         if (!caster)
             return;
 
-        int32 addhealth = damage;
+        float addhealth = damage;
 
         // Swiftmend - consumes Regrowth or Rejuvenation
         if (m_spellInfo->Id == 18562)
@@ -2236,7 +2236,7 @@ void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
         addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, addhealth, HEAL, 1, this);
         addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL, 1, this);
 
-        m_healing += addhealth;
+        m_healing += dither(addhealth);
     }
 }
 

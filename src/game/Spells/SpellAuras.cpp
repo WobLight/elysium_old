@@ -4915,7 +4915,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             CleanDamage cleanDamage = CleanDamage(0, BASE_ATTACK, MELEE_HIT_NORMAL, 0, 0);
 
             // ignore non positive values (can be result apply spellmods to aura damage
-            DamageModifier amount;
+            float amount;
             float base_coeff = 1;
             // Curse of Agony damage-per-tick calculation
             if (spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CURSE_OF_AGONY>())
@@ -4941,29 +4941,28 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
 
             if (!sProto)
             {
-                amount = m_modifier;
+                amount = std::max(m_modifier.raw(base_coeff),0.0f);
                 auraType = m_modifier.m_auraname;
             }
             else
-                amount.m_base = data;
+                amount = data * base_coeff;
 
             uint32 pdamage;
 
-            if (auraType == SPELL_AURA_PERIODIC_DAMAGE)
-                pdamage = amount.total(true,base_coeff);
-            else
-                pdamage = dither<uint32>(std::max(target->GetMaxHealth() * amount.raw(base_coeff) / 100, 0.0f));
+            if (auraType != SPELL_AURA_PERIODIC_DAMAGE)
+                amount = std::max(target->GetMaxHealth() * amount / 100, 0.0f);
 
             // SpellDamageBonus for magic spells
             if (spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE || spellProto->DmgClass == SPELL_DAMAGE_CLASS_MAGIC)
-                pdamage = target->SpellDamageBonusTaken(pCaster, spellProto, pdamage, DOT, GetStackAmount());
+                amount = target->SpellDamageBonusTaken(pCaster, spellProto, amount, DOT, GetStackAmount());
             // MeleeDamagebonus for weapon based spells
             else
             {
                 WeaponAttackType attackType = GetWeaponAttackType(spellProto);
-                pdamage = target->MeleeDamageBonusTaken(pCaster, pdamage, attackType, spellProto, DOT, GetStackAmount());
+                amount = target->MeleeDamageBonusTaken(pCaster, amount, attackType, spellProto, DOT, GetStackAmount());
             }
 
+            pdamage = dither(amount);
             // Calculate armor mitigation if it is a physical spell
             // But not for bleed mechanic spells
             if (GetSpellSchoolMask(spellProto) & SPELL_SCHOOL_MASK_NORMAL && GetEffectMechanic(spellProto, m_effIndex) != MECHANIC_BLEED && !(spellProto->Custom & SPELL_CUSTOM_IGNORE_ARMOR))
@@ -5027,7 +5026,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             uint32 resist = 0;
             CleanDamage cleanDamage =  CleanDamage(0, BASE_ATTACK, MELEE_HIT_NORMAL, 0, 0);
 
-            uint32 pdamage = m_modifier.total() > 0 ? m_modifier.total() : 0;
+            uint32 pdamage = std::max(m_modifier.total(true), 0);
 
             //Calculate armor mitigation if it is a physical spell
             if (GetSpellSchoolMask(spellProto) & SPELL_SCHOOL_MASK_NORMAL)
@@ -5102,16 +5101,14 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 return;
 
             // ignore non positive values (can be result apply spellmods to aura damage
-            uint32 amount = m_modifier.total() > 0 ? m_modifier.total() : 0;
+            float amount = std::max(m_modifier.raw(),0.0f);
 
             uint32 pdamage;
 
             if (m_modifier.m_auraname == SPELL_AURA_OBS_MOD_HEALTH)
-                pdamage = uint32(target->GetMaxHealth() * amount / 100);
-            else
-                pdamage = amount;
+                amount = target->GetMaxHealth() * amount / 100;
 
-            pdamage = target->SpellHealingBonusTaken(pCaster, spellProto, pdamage, DOT, GetStackAmount());
+            pdamage = dither(target->SpellHealingBonusTaken(pCaster, spellProto, amount, DOT, GetStackAmount()));
 
             DETAIL_FILTER_LOG(LOG_FILTER_PERIODIC_AFFECTS, "PeriodicTick: %s heal of %s for %u health inflicted by %u",
                               GetCasterGuid().GetString().c_str(), target->GetGuidStr().c_str(), pdamage, GetId());
@@ -5216,7 +5213,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 return;
 
             // ignore non positive values (can be result apply spellmods to aura damage
-            uint32 pdamage = m_modifier.total() > 0 ? m_modifier.total() : 0;
+            uint32 pdamage = std::max(m_modifier.total(true), 0);
 
             DETAIL_FILTER_LOG(LOG_FILTER_PERIODIC_AFFECTS, "PeriodicTick: %s power leech of %s for %u dmg inflicted by %u",
                               GetCasterGuid().GetString().c_str(), target->GetGuidStr().c_str(), pdamage, GetId());
@@ -5276,7 +5273,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 return;
 
             // ignore non positive values (can be result apply spellmods to aura damage
-            uint32 pdamage = m_modifier.total() > 0 ? m_modifier.total() : 0;
+            uint32 pdamage = std::max(m_modifier.total(true), 0);
 
             DETAIL_FILTER_LOG(LOG_FILTER_PERIODIC_AFFECTS, "PeriodicTick: %s energize %s for %u dmg inflicted by %u",
                               GetCasterGuid().GetString().c_str(), target->GetGuidStr().c_str(), pdamage, GetId());
@@ -5306,9 +5303,9 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 return;
 
             // ignore non positive values (can be result apply spellmods to aura damage
-            uint32 amount = m_modifier.total() > 0 ? m_modifier.total() : 0;
+            float amount = std::max(m_modifier.raw(), 0.0f);
 
-            uint32 pdamage = uint32(target->GetMaxPower(POWER_MANA) * amount / 100);
+            uint32 pdamage = dither<uint32>(target->GetMaxPower(POWER_MANA) * amount / 100);
 
             DETAIL_FILTER_LOG(LOG_FILTER_PERIODIC_AFFECTS, "PeriodicTick: %s energize %s for %u mana inflicted by %u",
                               GetCasterGuid().GetString().c_str(), target->GetGuidStr().c_str(), pdamage, GetId());
@@ -5339,7 +5336,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             if (target->IsImmuneToDamage(GetSpellSchoolMask(spellProto)))
                 return;
 
-            int32 pdamage = m_modifier.total() > 0 ? m_modifier.total() : 0;
+            int32 pdamage = std::max(m_modifier.total(true), 0);
 
             Powers powerType = Powers(m_modifier.m_miscvalue);
 
@@ -5378,7 +5375,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             if (!target->isAlive())
                 return;
 
-            int32 gain = target->ModifyHealth(m_modifier.total());
+            int32 gain = target->ModifyHealth(m_modifier.total(true));
             if (Unit *caster = GetCaster())
                 target->getHostileRefManager().threatAssist(caster, float(gain) * 0.5f  * sSpellMgr.GetSpellThreatMultiplier(spellProto), spellProto);
             // Eating anim
@@ -5411,7 +5408,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             // amount = 1+ 16 = 17 = 3,4*5 = 10,2*5/3
             // so 17 is rounded amount for 5 sec tick grow ~ 1 range grow in 3 sec
             if (pt == POWER_RAGE)
-                target->ModifyPower(pt, m_modifier.total() * 3 / 5);
+                target->ModifyPower(pt, dither(m_modifier.raw() * 3 / 5));
             break;
         }
         // Here tick dummy auras
