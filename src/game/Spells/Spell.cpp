@@ -4748,7 +4748,7 @@ void Spell::HandleEffects(Unit *pUnitTarget, Item *pItemTarget, GameObject *pGOT
 
     uint8 eff = m_spellInfo->Effect[i];
 
-    damage = dither(CalculateDamage(i, unitTarget) * DamageMultiplier);
+    damage = CalculateDamage(i, unitTarget) * DamageMultiplier;
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell %u Effect%d : %u Targets: %s, %s, %s",
                      m_spellInfo->Id, i, eff,

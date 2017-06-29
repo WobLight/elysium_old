@@ -545,7 +545,7 @@ class Spell
         Corpse* corpseTarget; // Nostalrius
         GameObject* gameObjTarget;
         SpellAuraHolder* m_spellAuraHolder;                 // spell aura holder for current target, created only if spell has aura applying effect
-        int32 damage;
+        float damage;
         bool isReflected = false;
 
         // this is set in Spell Hit, but used in Apply Aura handler
