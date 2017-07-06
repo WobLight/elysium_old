@@ -558,7 +558,6 @@ class Spell
         // Damage and healing in effects need just calculate
         int32 m_damage;                                     // Damage   in effects count here
         float m_healing;                                    // Healing in effects count here
-        float m_healthLeech;                                // Health leech in effects for all targets count here
 
         //******************************************
         // Spell trigger system

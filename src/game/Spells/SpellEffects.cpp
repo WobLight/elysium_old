@@ -2275,8 +2275,8 @@ void Spell::EffectHealthLeech(SpellEffectIndex effIndex)
     // get max possible damage, don't count overkill for heal
     float healthGain = damage;
     if (healthGain > unitTarget->GetHealth())
-        damage = unitTarget->GetHealth();
-    damage *= healMultiplier;
+        healthGain = unitTarget->GetHealth();
+    healthGain *= healMultiplier;
 
     if (m_caster->isAlive())
         m_caster->DealHeal(m_caster, dither(healthGain), m_spellInfo);

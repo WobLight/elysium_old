@@ -290,9 +290,6 @@ Spell::Spell(Unit* caster, SpellEntry const *info, bool triggered, ObjectGuid or
         if (!!(m_caster->getClassMask() & CLASSMASK_WAND_USERS) && m_caster->GetTypeId() == TYPEID_PLAYER)
             m_spellSchoolMask = GetSchoolMask(m_caster->GetWeaponDamageSchool(RANGED_ATTACK));
 
-    // Set health leech amount to zero
-    m_healthLeech = 0;
-
     m_originalCasterGUID = originalCasterGUID ? originalCasterGUID : m_caster->GetObjectGuid();
 
     UpdateOriginalCasterPointer();
@@ -3911,10 +3908,6 @@ void Spell::finish(bool ok)
 
     if (!m_channeled)
         HandleAddTargetTriggerAuras();
-
-    // Heal caster for all health leech from all targets
-    if (m_healthLeech)
-        m_caster->DealHeal(m_caster, dither(m_healthLeech), m_spellInfo);
 
     if (IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_NOT_RESET_AUTO_ACTIONS))
     {
