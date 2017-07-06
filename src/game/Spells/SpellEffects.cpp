@@ -2271,9 +2271,9 @@ void Spell::EffectHealthLeech(SpellEffectIndex effIndex)
     if (Player *modOwner = m_caster->GetSpellModOwner())
         modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_MULTIPLE_VALUE, healMultiplier);
 
-    m_damage += damage;
+    m_damage = dither(m_damage + damage);
     // get max possible damage, don't count overkill for heal
-    float healthGain = damage;
+    float healthGain = m_damage;
     if (healthGain > unitTarget->GetHealth())
         healthGain = unitTarget->GetHealth();
     healthGain *= healMultiplier;
