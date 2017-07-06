@@ -1688,7 +1688,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool   IsSpellBlocked(Unit *pCaster, SpellEntry const *spellProto, WeaponAttackType attackType = BASE_ATTACK);
         bool   IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType = BASE_ATTACK, Spell* spell = nullptr);
         uint32 SpellCriticalDamageBonus(SpellEntry const *spellProto, float damage, Unit *pVictim, Spell* spell = nullptr);
-        uint32 SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 damage, Unit *pVictim);
+        float SpellCriticalHealingBonus(SpellEntry const *spellProto, float damage, Unit *pVictim);
 
         bool IsTriggeredAtSpellProcEvent(Unit *pVictim, SpellAuraHolder* holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent );
         // Aura proc handlers

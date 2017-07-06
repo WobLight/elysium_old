@@ -1139,7 +1139,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
     if (m_healing)
     {
         bool crit = real_caster && real_caster->IsSpellCrit(unitTarget, m_spellInfo, m_spellSchoolMask, BASE_ATTACK, this);
-        uint32 addhealth = m_healing;
+        float addhealth = m_healing;
         if (crit)
         {
             procEx |= PROC_EX_CRITICAL_HIT;
@@ -1168,7 +1168,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
             caster->ProcDamageAndSpell(unitTarget, real_caster ? procAttacker : PROC_FLAG_NONE, procVictim, procEx, addhealth, m_attackType, spellInfo, this);
         }
 
-        int32 gain = caster->DealHeal(unitTarget, addhealth, m_spellInfo, crit);
+        int32 gain = caster->DealHeal(unitTarget, dither(addhealth), m_spellInfo, crit);
 
         float classThreatModifier = caster->getClass() == CLASS_PALADIN ? 0.25f : 0.5f;
 
@@ -3914,7 +3914,7 @@ void Spell::finish(bool ok)
 
     // Heal caster for all health leech from all targets
     if (m_healthLeech)
-        m_caster->DealHeal(m_caster, uint32(m_healthLeech), m_spellInfo);
+        m_caster->DealHeal(m_caster, dither(m_healthLeech), m_spellInfo);
 
     if (IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_NOT_RESET_AUTO_ACTIONS))
     {

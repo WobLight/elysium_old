@@ -6568,10 +6568,10 @@ uint32 Unit::SpellCriticalDamageBonus(SpellEntry const *spellProto, float damage
     return damage;
 }
 
-uint32 Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 damage, Unit *pVictim)
+float Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, float damage, Unit *pVictim)
 {
     // Calculate critical bonus
-    int32 crit_bonus;
+    float crit_bonus;
     switch (spellProto->DmgClass)
     {
         case SPELL_DAMAGE_CLASS_MELEE:                      // for melee based spells is 100%
@@ -6587,7 +6587,7 @@ uint32 Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 dama
     if (pVictim)
     {
         uint32 creatureTypeMask = pVictim->GetCreatureTypeMask();
-        crit_bonus = int32(crit_bonus * GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_CRIT_PERCENT_VERSUS, creatureTypeMask));
+        crit_bonus = crit_bonus * GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_CRIT_PERCENT_VERSUS, creatureTypeMask);
     }
 
     if (crit_bonus > 0)

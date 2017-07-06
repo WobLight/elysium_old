@@ -2236,7 +2236,7 @@ void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
         addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, addhealth, HEAL, 1, this);
         addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL, 1, this);
 
-        m_healing += dither(addhealth);
+        m_healing += addhealth;
     }
 }
 
@@ -2262,8 +2262,8 @@ void Spell::EffectHealthLeech(SpellEffectIndex effIndex)
     if (!unitTarget || !unitTarget->isAlive() || damage < 0)
         return;
 
-    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE);
-    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE);
+    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, damage, SPELL_DIRECT_DAMAGE);
+    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, damage, SPELL_DIRECT_DAMAGE);
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "HealthLeech :%i", damage);
 
@@ -2273,15 +2273,13 @@ void Spell::EffectHealthLeech(SpellEffectIndex effIndex)
 
     m_damage += damage;
     // get max possible damage, don't count overkill for heal
-    uint32 healthGain = uint32(damage);
+    float healthGain = damage;
     if (healthGain > unitTarget->GetHealth())
         damage = unitTarget->GetHealth();
     damage *= healMultiplier;
 
     if (m_caster->isAlive())
-    {
-        m_caster->DealHeal(m_caster, uint32(healthGain), m_spellInfo);
-    }
+        m_caster->DealHeal(m_caster, dither(healthGain), m_spellInfo);
 }
 
 void Spell::DoCreateItem(SpellEffectIndex eff_idx, uint32 itemtype)
@@ -3958,7 +3956,7 @@ void Spell::EffectHealMaxHealth(SpellEffectIndex /*eff_idx*/)
         return;
     if (!unitTarget->isAlive())
         return;
-    uint32 heal = m_caster->GetMaxHealth();
+    float heal = m_caster->GetMaxHealth();
 
     // Healing percent modifiers
     float  DoneTotalMod = 1.0f;
