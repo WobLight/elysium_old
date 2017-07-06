@@ -661,7 +661,7 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
             if (cleanDamage->hitOutCome == MELEE_HIT_PARRY || cleanDamage->hitOutCome == MELEE_HIT_DODGE)
             {
                 if (cleanDamage->damage && damagetype == DIRECT_DAMAGE && this != pVictim && GetTypeId() == TYPEID_PLAYER && (getPowerType() == POWER_RAGE))
-                    ((Player*)this)->RewardRage(cleanDamage->damage*0.75, true);
+                    ((Player*)this)->RewardRage(dither(cleanDamage->damage*0.75), true);
             }
 
             // Degats recus sous bouclier par exemple.
@@ -2103,7 +2103,7 @@ static ResistanceValues resistValues[] =
     {25, 55, 16, 3, 1, 75} // 300
 };
 
-void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolMask, DamageEffectType damagetype, const uint32 damage, uint32 *absorb, uint32 *resist, SpellEntry const* spellProto, Spell* spell)
+void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolMask, DamageEffectType damagetype, const float damage, uint32 *absorb, uint32 *resist, SpellEntry const* spellProto, Spell* spell)
 {
     if (!pCaster || !isAlive() || !damage)
         return;
@@ -2192,14 +2192,14 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
 
         DEBUG_UNIT(this, DEBUG_SPELL_COMPUTE_RESISTS, "Partial resist : chances %.2f:%.2f:%.2f:%.2f:%.2f. Hit resist chance %f",
               resist0, resist25, resist50, resist75, resist100, resistanceChance);
-        *resist += uint32(damage * resistCnt);
+        *resist += dither(damage * resistCnt);
         if (*resist > damage)
             *resist = damage;
     }
     else
         *resist = 0;
 
-    int32 RemainingDamage = damage - *resist;
+    float RemainingDamage = damage - *resist;
 
     // Need remove expired auras after
     bool existExpired = false;
@@ -2213,9 +2213,10 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             continue;
 
         // Max Amount can be absorbed by this aura
-        int32  currentAbsorb = mod->total(true);
+        uint32  currentAbsorb = mod->total(true);
 
         // Found empty aura (impossible but..)
+        // or mod->raw() was < 1 rounded to 0
         if (currentAbsorb <= 0)
         {
             existExpired = true;
@@ -2225,9 +2226,12 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
         // currentAbsorb - damage can be absorbed by shield
         // If need absorb less damage
         if (RemainingDamage < currentAbsorb)
-            currentAbsorb = RemainingDamage;
-
-        RemainingDamage -= currentAbsorb;
+        {
+            currentAbsorb = dither(RemainingDamage);
+            RemainingDamage = 0;
+        }
+        else
+            RemainingDamage -= currentAbsorb;
 
         // Reduce shield amount
         mod->m_bonus -= currentAbsorb;
@@ -2269,18 +2273,18 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
         if (RemainingDamage >= (*i)->GetModifier()->raw())
             currentAbsorb = (*i)->GetModifier()->total(true);
         else
-            currentAbsorb = RemainingDamage;
+            currentAbsorb = dither(RemainingDamage);
 
         if (float manaMultiplier = (*i)->GetSpellProto()->EffectMultipleValue[(*i)->GetEffIndex()])
         {
             if (Player *modOwner = GetSpellModOwner())
                 modOwner->ApplySpellMod((*i)->GetId(), SPELLMOD_MULTIPLE_VALUE, manaMultiplier, spell);
 
-            int32 maxAbsorb = int32(GetPower(POWER_MANA) / manaMultiplier);
+            float maxAbsorb = GetPower(POWER_MANA) / manaMultiplier;
             if (currentAbsorb > maxAbsorb)
-                currentAbsorb = maxAbsorb;
+                currentAbsorb = dither(maxAbsorb);
 
-            int32 manaReduction = int32(currentAbsorb * manaMultiplier);
+            int32 manaReduction = dither(currentAbsorb * manaMultiplier);
             ApplyPowerMod(POWER_MANA, manaReduction, false);
         }
 
@@ -2316,7 +2320,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             if (RemainingDamage >= (*i)->GetModifier()->raw())
                 currentAbsorb = (*i)->GetModifier()->total(true);
             else
-                currentAbsorb = RemainingDamage;
+                currentAbsorb = dither(RemainingDamage);
 
             RemainingDamage -= currentAbsorb;
 
@@ -2349,9 +2353,9 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
             if (!caster || caster == this || !caster->IsInWorld() || !caster->isAlive())
                 continue;
 
-            uint32 splitted = uint32(RemainingDamage * (*i)->GetModifier()->raw() / 100.0f);
+            uint32 splitted = dither(RemainingDamage * (*i)->GetModifier()->raw() / 100.0f);
 
-            RemainingDamage -=  int32(splitted);
+            RemainingDamage -=  splitted;
 
             uint32 split_absorb = 0;
             pCaster->DealDamageMods(caster, splitted, &split_absorb);

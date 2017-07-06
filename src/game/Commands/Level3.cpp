@@ -3314,7 +3314,7 @@ bool ChatHandler::HandleDamageCommand(char* args)
     if (damage_int <= 0)
         return true;
 
-    uint32 damage = damage_int;
+    float damage = damage_int;
 
     // flat melee damage without resistence/etc reduction
     if (!*args)
@@ -3348,11 +3348,11 @@ bool ChatHandler::HandleDamageCommand(char* args)
         if (damage <= absorb + resist)
             return true;
 
-        damage -= absorb + resist;
+        uint32 fdamage = dither(damage - absorb + resist);
 
-        m_session->GetPlayer()->DealDamageMods(target, damage, &absorb);
-        m_session->GetPlayer()->DealDamage(target, damage, NULL, DIRECT_DAMAGE, schoolmask, NULL, false);
-        m_session->GetPlayer()->SendAttackStateUpdate(HITINFO_NORMALSWING2, target, 1, schoolmask, damage, absorb, resist, VICTIMSTATE_NORMAL, 0);
+        m_session->GetPlayer()->DealDamageMods(target, fdamage, &absorb);
+        m_session->GetPlayer()->DealDamage(target, fdamage, NULL, DIRECT_DAMAGE, schoolmask, NULL, false);
+        m_session->GetPlayer()->SendAttackStateUpdate(HITINFO_NORMALSWING2, target, 1, schoolmask, fdamage, absorb, resist, VICTIMSTATE_NORMAL, 0);
         return true;
     }
 

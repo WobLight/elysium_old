@@ -1890,7 +1890,7 @@ class MANGOS_DLL_SPEC Player final: public Unit
         /***              ENVIRONMENTAL SYSTEM                  ***/
         /*********************************************************/
 
-        uint32 EnvironmentalDamage(EnvironmentalDamageType type, uint32 damage);
+        uint32 EnvironmentalDamage(EnvironmentalDamageType type, float damage);
 
         /*********************************************************/
         /***               FLOOD FILTER SYSTEM                 ***/

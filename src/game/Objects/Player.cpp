@@ -904,7 +904,7 @@ void Player::StopMirrorTimer(MirrorTimerType Type)
     GetSession()->SendPacket(&data);
 }
 
-uint32 Player::EnvironmentalDamage(EnvironmentalDamageType type, uint32 damage)
+uint32 Player::EnvironmentalDamage(EnvironmentalDamageType type, float damage)
 {
     if (!isAlive() || isGameMaster())
         return 0;
@@ -918,19 +918,19 @@ uint32 Player::EnvironmentalDamage(EnvironmentalDamageType type, uint32 damage)
     else if (type == DAMAGE_SLIME)
         CalculateDamageAbsorbAndResist(this, SPELL_SCHOOL_MASK_NATURE, DIRECT_DAMAGE, damage, &absorb, &resist, NULL);
 
-    damage -= absorb + resist;
+    uint32 fdamage = dither(damage - absorb + resist);
 
-    DealDamageMods(this, damage, &absorb);
+    DealDamageMods(this, fdamage, &absorb);
 
     WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, (21));
     data << GetObjectGuid();
     data << uint8(type != DAMAGE_FALL_TO_VOID ? type : DAMAGE_FALL);
-    data << uint32(damage);
+    data << uint32(fdamage);
     data << (uint32)absorb; // absorb
     data << (uint32)resist; // resist
     SendObjectMessageToSet(&data, true);
 
-    uint32 final_damage = DealDamage(this, damage, NULL, SELF_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+    uint32 final_damage = DealDamage(this, fdamage, NULL, SELF_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
 
     if (type == DAMAGE_FALL && !isAlive())                  // DealDamage not apply item durability loss at self damage
     {

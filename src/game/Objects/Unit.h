@@ -591,10 +591,10 @@ enum MeleeHitOutcome
 
 struct CleanDamage
 {
-    CleanDamage(uint32 _damage, WeaponAttackType _attackType, MeleeHitOutcome _hitOutCome, uint32 _Absorb, uint32 _Resist) :
+    CleanDamage(float _damage, WeaponAttackType _attackType, MeleeHitOutcome _hitOutCome, uint32 _Absorb, uint32 _Resist) :
     damage(_damage), attackType(_attackType), hitOutCome(_hitOutCome), absorb(_Absorb), resist(_Resist) {}
 
-    uint32 damage;
+    float damage;
     WeaponAttackType attackType;
     MeleeHitOutcome hitOutCome;
     uint32 absorb;
@@ -1727,7 +1727,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         float GetSpellResistChance(Unit* victim, uint32 schoolMask, bool innateResists) const;
         float CalcArmorReducedDamage(Unit* pVictim, const float damage);
-        void CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolMask, DamageEffectType damagetype, const uint32 damage, uint32 *absorb, uint32 *resist, SpellEntry const* spellProto = nullptr, Spell* spell = nullptr);
+        void CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolMask, DamageEffectType damagetype, const float damage, uint32 *absorb, uint32 *resist, SpellEntry const* spellProto = nullptr, Spell* spell = nullptr);
         void CalculateAbsorbResistBlock(Unit *pCaster, SpellNonMeleeDamage *damageInfo, SpellEntry const* spellProto, WeaponAttackType attType = BASE_ATTACK, Spell* spell = nullptr);
 
         void  UpdateSpeed(UnitMoveType mtype, bool forced, float ratio = 1.0f);
