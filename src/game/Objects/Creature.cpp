@@ -529,8 +529,6 @@ bool Creature::UpdateEntry(uint32 Entry, Team team, const CreatureData *data /*=
     {
         if (factionTemplate->factionFlags & FACTION_TEMPLATE_FLAG_PVP || IsCivilian())
             SetPvP(true);
-        else
-            SetPvP(false);
     }
 
     for (int i = 0; i < CREATURE_MAX_SPELLS; ++i)
@@ -3549,4 +3547,13 @@ void Creature::JoinCreatureGroup(Creature* leader, float dist, float angle, uint
     SetCreatureGroup(group);
     if (group->IsFormation())
         GetMotionMaster()->Initialize();
+}
+
+bool Creature::HasWeapon() const
+{
+    uint8 itemClass = GetByteValue(UNIT_VIRTUAL_ITEM_INFO + (0 * 2) + 0, VIRTUAL_ITEM_INFO_0_OFFSET_CLASS);
+    if (itemClass == ITEM_CLASS_WEAPON)
+        return true;
+
+    return false;
 }

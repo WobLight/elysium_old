@@ -559,6 +559,31 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask *
                             if (target->getClass() != CLASS_HUNTER)
                                 appendValue &= ~UNIT_NPC_FLAG_STABLEMASTER;
                         }
+
+                        if (appendValue & UNIT_NPC_FLAG_FLIGHTMASTER)
+                        {
+                            QuestRelationsMapBounds bounds = sObjectMgr.GetCreatureQuestRelationsMapBounds(((Creature*)this)->GetEntry());
+                            for (QuestRelationsMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
+                            {
+                                Quest const* pQuest = sObjectMgr.GetQuestTemplate(itr->second);
+                                if (target->CanSeeStartQuest(pQuest))
+                                {
+                                    appendValue &= ~UNIT_NPC_FLAG_FLIGHTMASTER;
+                                    break;
+                                }
+                            }
+
+                            bounds = sObjectMgr.GetCreatureQuestInvolvedRelationsMapBounds(((Creature*)this)->GetEntry());
+                            for (QuestRelationsMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
+                            {
+                                Quest const* pQuest = sObjectMgr.GetQuestTemplate(itr->second);
+                                if (target->CanRewardQuest(pQuest, false))
+                                {
+                                    appendValue &= ~UNIT_NPC_FLAG_FLIGHTMASTER;
+                                    break;
+                                }
+                            }
+                        }
                     }
 
                     *data << uint32(appendValue);
@@ -586,7 +611,15 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask *
                 else if (index == UNIT_DYNAMIC_FLAGS)
                 {
                     uint32 dynamicFlags = m_uint32Values[index];
-
+                    if (HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_TRACK_UNIT))
+                        if (Unit const * unit = ToUnit())
+                        {
+                            Unit::AuraList auras = unit->GetAurasByType(SPELL_AURA_MOD_STALKED);
+                            if (std::find_if(auras.begin(), auras.end(),[target](Aura *a){
+                                return target->GetObjectGuid() == a->GetCasterGuid();
+                            }) == auras.end())
+                                dynamicFlags &= ~UNIT_DYNFLAG_TRACK_UNIT;
+                        }
                     if (Creature const* creature = ToCreature())
                     {
                         if (creature->HasLootRecipient())
@@ -1080,7 +1113,7 @@ void Object::ExecuteDelayedActions()
 {
     if (_delayedActions & OBJECT_DELAYED_MARK_CLIENT_UPDATE)
     {
-        if (m_inWorld)
+        if (m_inWorld && !_deleted)
         {
             if (!m_objectUpdated)
             {
@@ -1985,6 +2018,15 @@ void WorldObject::SetMap(Map * map)
     //lets save current map's Id/instanceId
     m_mapId = map->GetId();
     m_InstanceId = map->GetInstanceId();
+
+    // Order is important, must be done after m_currMap is set
+    SetZoneScript();
+}
+
+void WorldObject::ResetMap()
+{
+    m_currMap = nullptr;
+    m_zoneScript = nullptr;
 }
 
 TerrainInfo const* WorldObject::GetTerrain() const
@@ -2100,6 +2142,7 @@ GameObject* WorldObject::SummonGameObject(uint32 entry, float x, float y, float 
 
 void WorldObject::SetZoneScript()
 {
+    m_zoneScript = nullptr;
     if (Map* pMap = FindMap())
     {
         if (pMap->IsDungeon())
